@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isSignedIn() && (
+        (exists(path) && get(path).data.role == 'admin') || 
+        request.auth.token.email == 'akash.s@cisinlabs.com' ||
+        request.auth.token.email == 'admin@nexus.com'
+      );
+    }
+
+    function isManager() {
+      return isSignedIn() && (getRole() == 'manager' || isAdmin());
+    }
+
+    // --- Validation Helpers ---
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'createdAt'])
+        && data.keys().size() >= 5
+        && data.keys().size() <= 8
+        && data.uid is string && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 256
+        && data.displayName is string && data.displayName.size() <= 128
+        && data.role in ['admin', 'manager', 'employee']
+        && (data.createdAt is number || data.createdAt is timestamp)
+        && (!data.keys().hasAny(['avatarUrl']) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1024))
+        && (!data.keys().hasAny(['status']) || data.status in ['active', 'disabled'])
+        && (!data.keys().hasAny(['permissions']) || data.permissions is list);
+    }
+
+    function isValidClient(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'status', 'createdAt'])
+        && data.id is string
+        && data.name is string && data.name.size() <= 128
+        && data.status in ['active', 'inactive', 'lead']
+        && (data.createdAt is number || data.createdAt is timestamp);
+    }
+
+    function isValidChannel(data) {
+      return data.keys().hasAll(['id', 'name', 'type', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.type in ['public', 'private', 'project']
+        && (data.createdAt is number || data.createdAt is timestamp);
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['senderId', 'senderName', 'text', 'timestamp', 'participants'])
+        && data.senderId == request.auth.uid
+        && data.participants is list
+        && data.participants.size() >= 1 && data.participants.size() <= 50
+        && (request.auth.uid in data.participants)
+        && data.text is string && data.text.size() <= 10000
+        && (data.timestamp is number || data.timestamp is timestamp);
+    }
+
+    function isNotDisabled() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      // If profile doesn't exist, they are not disabled yet.
+      // If it exists but has no status, assume active.
+      return !exists(path) || (
+        !get(path).data.keys().hasAny(['status']) || 
+        get(path).data.status != 'disabled'
+      );
+    }
+
+    // --- Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() 
+        && (isOwner(userId) || isAdmin())
+        && isValidId(userId)
+        && isValidUser(request.resource.data);
+
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && (
+          isAdmin() ||
+          (isOwner(userId) && isValidUser(request.resource.data) && (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'avatarUrl'])
+          ))
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow read: if isSignedIn() && isNotDisabled();
+      allow create: if isManager() && isNotDisabled() && isValidClient(request.resource.data);
+      allow update: if isManager() && isNotDisabled() && isValidClient(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn() && isNotDisabled();
+      allow create: if isManager() && isNotDisabled();
+      allow update: if isManager() && isNotDisabled();
+      allow delete: if isAdmin();
+    }
+
+    match /channels/{channelId} {
+      allow read: if isSignedIn() && isNotDisabled();
+      allow create: if isManager() && isNotDisabled() && isValidChannel(request.resource.data);
+      allow update: if isManager() && isNotDisabled() && isValidChannel(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && (
+        resource.data.channelId != null || 
+        request.auth.uid in resource.data.participants
+      );
+      allow create: if isSignedIn() && isNotDisabled() && isValidMessage(request.resource.data);
+      allow update: if false; 
+      allow delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public and private information for a registered user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "manager", "employee"] },
+        "avatarUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "displayName", "role", "createdAt"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Enterprise client information.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "company": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "lead"] },
+        "notes": { "type": "string" },
+        "assignedManagerId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "email", "status", "createdAt"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Client project details and status.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["planning", "active", "on_hold", "completed"] },
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "teamIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "clientId", "title", "status", "createdAt"]
+    },
+    "Channel": {
+      "title": "Chat Channel",
+      "description": "A public or private chat room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "private", "project"] },
+        "projectId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "createdAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "An individual chat message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "channelId": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "attachments": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["id", "senderId", "senderName", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles for all members of the platform."
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Master list of enterprise clients."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Client-linked projects."
+    },
+    "/channels/{channelId}": {
+      "schema": "Channel",
+      "description": "Chat channels."
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages (global collection for easier querying)."
+    }
+  }
+}
