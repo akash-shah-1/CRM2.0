@@ -76,7 +76,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
         projectId: formData.projectId,
         uploadedBy: user?.displayName || 'Current User',
         uploadedByUid: user?.uid,
-      });
+      }, selectedFile || undefined);
       
       // Notify admins about the new document
       await createNotification({
@@ -112,13 +112,13 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
     }
   };
 
-  const handleDelete = async (id: string, isFromDb: boolean) => {
+  const handleDelete = async (id: string, isFromDb: boolean, storagePath?: string) => {
     if (!confirm('Are you sure you want to delete this document?')) return;
     
     if (isFromDb) {
       try {
         const docToDelete = dbData.find(d => d.id === id);
-        await removeDocument(id);
+        await removeDocument(id, storagePath);
         
         if (docToDelete) {
           logActivity({
@@ -189,7 +189,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
               { label: 'View Document', onClick: () => item.type === 'PDF' && setViewingFile({ name: item.name, url: item.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', type: 'pdf' }), icon: FileText },
               { label: 'Rename', onClick: () => console.log('Rename', item.id) },
               { label: 'Share Link', onClick: () => console.log('Share', item.id) },
-              { label: 'Delete', onClick: () => handleDelete(item.id, !!item.createdAt && typeof item.createdAt !== 'string'), variant: 'danger' },
+              { label: 'Delete', onClick: () => handleDelete(item.id, !!item.createdAt && typeof item.createdAt !== 'string', item.storagePath), variant: 'danger' },
             ]}
           />
         </div>

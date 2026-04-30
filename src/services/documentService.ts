@@ -10,8 +10,17 @@ import {
   where,
   limit
 } from 'firebase/firestore';
+import { 
+  getStorage, 
+  ref, 
+  uploadBytes, 
+  getDownloadURL,
+  deleteObject 
+} from 'firebase/storage';
 import { db } from './firebase';
 import { handleFirestoreError, OperationType } from '../utils/firebaseErrorHandler';
+
+const storage = getStorage();
 
 export interface DocumentData {
   id?: string;
@@ -22,6 +31,8 @@ export interface DocumentData {
   uploadedBy: string;
   uploadedByUid?: string;
   createdAt: any;
+  url?: string;
+  storagePath?: string;
 }
 
 export function subscribeToDocuments(
@@ -53,10 +64,24 @@ export function subscribeToDocuments(
   });
 }
 
-export async function uploadDocument(data: Omit<DocumentData, 'id' | 'createdAt'>) {
+export async function uploadDocument(data: Omit<DocumentData, 'id' | 'createdAt'>, file?: File) {
   try {
+    let url = (data as any).url || '';
+    let storagePath = '';
+
+    if (file) {
+      const path = `documents/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage);
+      const fileRef = ref(storage, path);
+      await uploadBytes(fileRef, file);
+      url = await getDownloadURL(fileRef);
+      storagePath = path;
+    }
+
     const docRef = await addDoc(collection(db, 'documents'), {
       ...data,
+      url,
+      storagePath,
       createdAt: serverTimestamp()
     });
     return docRef.id;
@@ -65,8 +90,12 @@ export async function uploadDocument(data: Omit<DocumentData, 'id' | 'createdAt'
   }
 }
 
-export async function removeDocument(id: string) {
+export async function removeDocument(id: string, storagePath?: string) {
   try {
+    if (storagePath) {
+      const fileRef = ref(storage, storagePath);
+      await deleteObject(fileRef).catch(e => console.error('Storage delete error:', e));
+    }
     await deleteDoc(doc(db, 'documents', id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `documents/${id}`);
