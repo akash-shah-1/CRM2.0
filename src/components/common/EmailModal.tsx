@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Send, X, Paperclip, Mail, Shield, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Input, Select } from '../ui/FormElements';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../services/firebase';
 import { useAuth } from '../../store/AuthContext';
+import { logCommunication } from '../../services/communicationService';
+import { createNotification } from '../../utils/notifications';
 
 interface EmailModalProps {
   isOpen: boolean;
@@ -31,30 +31,23 @@ export function EmailModal({ isOpen, onClose, recipientEmail = '', recipientName
 
     setIsSending(true);
     try {
-      // Record the communication in Firestore
-      await addDoc(collection(db, 'communications'), {
-        fromId: user?.uid,
-        fromName: user?.displayName,
-        fromEmail: user?.email,
+      // Record the communication in Firestore via Service
+      await logCommunication({
+        fromId: user?.uid || 'unknown',
+        fromName: user?.displayName || 'Unknown User',
+        fromEmail: user?.email || '',
         toEmail: formData.to,
-        toName: recipientName,
         subject: formData.subject,
         message: formData.message,
-        priority: formData.priority,
-        projectId: projectId || null,
-        type: 'email',
-        category: type,
-        timestamp: serverTimestamp(),
-        status: 'sent'
+        status: 'sent',
+        type: type
       });
 
       // Also create a notification for the context of activity tracking
-      await addDoc(collection(db, 'notifications'), {
+      await createNotification({
         title: 'Email Sent',
         message: `An email was sent to ${recipientName || formData.to}: ${formData.subject}`,
         type: 'info',
-        timestamp: serverTimestamp(),
-        read: false,
         userId: user?.uid
       });
 
@@ -75,27 +68,20 @@ export function EmailModal({ isOpen, onClose, recipientEmail = '', recipientName
       title="Compose Message"
       size="xl"
       footer={
-        <div className="flex items-center justify-between w-full">
-           <div className="flex items-center gap-2">
-              <button type="button" className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
-                <Paperclip size={18} />
-              </button>
-           </div>
-           <div className="flex items-center gap-3">
-              <button onClick={onClose} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 rounded-lg transition-all">Discard</button>
-              <button 
-                onClick={handleSubmit} 
-                className="px-6 py-2 bg-slate-900 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-slate-800 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
-                disabled={isSending || !formData.to || !formData.subject || !formData.message}
-              >
-                {isSending ? 'Sending...' : 'Send Message'}
-                <Send size={14} />
-              </button>
-           </div>
+        <div className="flex items-center justify-end w-full gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-100 rounded-lg transition-all">Discard</button>
+          <button 
+            onClick={handleSubmit} 
+            className="px-6 py-2 bg-blue-600 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md disabled:opacity-50 active:scale-95"
+            disabled={isSending || !formData.to || !formData.subject || !formData.message}
+          >
+            {isSending ? 'Sending...' : 'Send Message'}
+            <Send size={14} />
+          </button>
         </div>
       }
     >
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl mb-4">
            <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400">
               {type === 'team' ? <Shield size={20} /> : <User size={20} />}
@@ -140,7 +126,7 @@ export function EmailModal({ isOpen, onClose, recipientEmail = '', recipientName
         <div className="space-y-2">
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Message Content</label>
           <textarea 
-            className="w-full min-h-[200px] p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/50 transition-all outline-none resize-none leading-relaxed"
+            className="w-full min-h-[140px] p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/50 transition-all outline-none resize-none leading-relaxed"
             placeholder="Type your message here..."
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}

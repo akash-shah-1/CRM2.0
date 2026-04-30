@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DOCUMENTS_DATA } from '../../dummy-data/tools';
 import { useAuth } from '../../store/AuthContext';
 import { useSearch } from '../../hooks/useSearch';
@@ -7,6 +7,12 @@ import { File, Download, Search, Plus, Filter, FileText, FileImage, FileArchive,
 import { ActionMenu } from '../../components/common/ActionMenu';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/FormElements';
+import { logActivity } from '../../utils/activity';
+import { createNotification } from '../../utils/notifications';
+import { subscribeToDocuments, uploadDocument, removeDocument, DocumentData } from '../../services/documentService';
+
+import { PageTransition } from '../../components/common/PageTransition';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 export default function DocumentsPage({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
@@ -17,34 +23,82 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
     return DOCUMENTS_DATA.filter(d => user?.projectAccess?.includes(d.projectId));
   }, [user, isAdmin]);
 
-  const [data, setData] = useState(accessibleDocs);
-  
-  useMemo(() => {
-    setData(accessibleDocs);
-  }, [accessibleDocs]);
+  const [dbData, setDbData] = useState<DocumentData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Sync with Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const unsub = subscribeToDocuments(isAdmin, user.projectAccess || [], (docs) => {
+      setDbData(docs);
+      setIsLoading(false);
+    });
+
+    return () => unsub();
+  }, [user, isAdmin]);
+
+  const combinedData = useMemo(() => {
+    const filteredDbData = isAdmin 
+      ? dbData 
+      : dbData.filter(d => user?.projectAccess?.includes(d.projectId));
+    
+    // Merge initial dummy data and Firestore data
+    return [...filteredDbData, ...accessibleDocs];
+  }, [dbData, accessibleDocs, isAdmin, user?.projectAccess]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [formData, setFormData] = useState({ name: '', type: 'PDF', projectId: projectId || '1' });
   
   const filteredDocsByProject = useMemo(() => {
-    if (!projectId) return data;
-    return data.filter(d => d.projectId === projectId);
-  }, [data, projectId]);
+    if (!projectId) return combinedData;
+    return combinedData.filter(d => d.projectId === projectId);
+  }, [combinedData, projectId]);
 
   const { searchTerm, setSearchTerm, filteredData } = useSearch(filteredDocsByProject, ['name', 'projectId', 'type']);
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newDoc = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: formData.name,
-      type: formData.type,
-      size: '0 KB',
-      projectId: formData.projectId,
-      uploadedBy: 'Current User'
-    };
-    setData([newDoc, ...data]);
-    setIsModalOpen(false);
-    setFormData({ name: '', type: 'PDF', projectId: projectId || '1' });
+    if (!formData.name && !selectedFile) return;
+
+    try {
+      const fileName = formData.name || selectedFile?.name || 'Untitled Document';
+      const fileSize = selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB` : '1.2 MB';
+      
+      await uploadDocument({
+        name: fileName,
+        type: formData.type,
+        size: fileSize,
+        projectId: formData.projectId,
+        uploadedBy: user?.displayName || 'Current User',
+        uploadedByUid: user?.uid,
+      });
+      
+      // Notify admins about the new document
+      await createNotification({
+        title: 'New Document Uploaded',
+        message: `${user?.displayName} uploaded "${fileName}" to the platform.`,
+        type: 'success',
+        userId: 'admin' // Broadcast to admins
+      });
+
+      setIsModalOpen(false);
+      setFormData({ name: '', type: 'PDF', projectId: projectId || '1' });
+      setSelectedFile(null);
+
+      logActivity({
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || 'Unknown',
+        action: 'uploaded document',
+        target: fileName,
+        projectId: formData.projectId,
+        type: 'document'
+      });
+    } catch (error) {
+       // Service context already handled error throwing if needed
+    }
   };
 
   const getFileIcon = (type: string) => {
@@ -54,6 +108,31 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       case 'DOCX': return <File className="text-blue-500" size={18} />;
       default: return <FileArchive className="text-slate-400" size={18} />;
     }
+  };
+
+  const handleDelete = async (id: string, isFromDb: boolean) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    
+    if (isFromDb) {
+      try {
+        const docToDelete = dbData.find(d => d.id === id);
+        await removeDocument(id);
+        
+        if (docToDelete) {
+          logActivity({
+            userId: user?.uid || 'unknown',
+            userName: user?.displayName || 'Unknown',
+            action: 'deleted document',
+            target: docToDelete.name,
+            projectId: docToDelete.projectId,
+            type: 'document'
+          });
+        }
+      } catch (error) {
+        // Error handled/thrown by service
+      }
+    }
+    // Dummy filter logic removed if choosing to rely solely on Firestore sync
   };
 
   const columns = [
@@ -93,16 +172,16 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       header: '',
       key: 'actions',
       align: 'right' as const,
-      render: (doc: any) => (
+      render: (item: any) => (
         <div className="flex items-center justify-end gap-2">
           <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent">
             <Download size={16} />
           </button>
           <ActionMenu 
             items={[
-              { label: 'Rename', onClick: () => console.log('Rename', doc.id) },
-              { label: 'Share Link', onClick: () => console.log('Share', doc.id) },
-              { label: 'Delete', onClick: () => setData(data.filter(d => d.id !== doc.id)), variant: 'danger' },
+              { label: 'Rename', onClick: () => console.log('Rename', item.id) },
+              { label: 'Share Link', onClick: () => console.log('Share', item.id) },
+              { label: 'Delete', onClick: () => handleDelete(item.id, !!item.createdAt && typeof item.createdAt !== 'string'), variant: 'danger' },
             ]}
           />
         </div>
@@ -111,61 +190,127 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
   ];
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Document Center</h2>
-          <p className="text-slate-500 text-sm text-left">Centralized repository for project assets and contracts.</p>
+    <PageTransition>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Document Center</h2>
+            <p className="text-slate-500 text-sm text-left">Centralized repository for project assets and contracts.</p>
+          </div>
+          <button 
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm transition-all active:scale-95"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus size={18} />
+            Upload File
+          </button>
         </div>
-        <button 
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm transition-all active:scale-95"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <Plus size={18} />
-          Upload File
-        </button>
-      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
-          <div className="relative max-w-md w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search documents by name or project..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
+            <div className="relative max-w-md w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="text" 
+                placeholder="Search documents by name or project..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors uppercase tracking-widest">
+                <Filter size={14} />
+                Filter
+              </button>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="p-4 space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                   <div className="flex items-center gap-3">
+                      <Skeleton className="w-10 h-10" />
+                      <div className="space-y-1">
+                         <Skeleton className="h-4 w-40" />
+                         <Skeleton className="h-2 w-20" />
+                      </div>
+                   </div>
+                   <Skeleton className="h-4 w-24" />
+                   <Skeleton className="h-4 w-32" />
+                   <Skeleton className="w-8 h-8 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <DataTable 
+              columns={columns}
+              data={filteredData}
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors uppercase tracking-widest">
-              <Filter size={14} />
-              Filter
-            </button>
-          </div>
+          )}
         </div>
-
-        <DataTable 
-          columns={columns}
-          data={filteredData}
-        />
-      </div>
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Upload New Document"
         footer={
-          <>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-            <button onClick={handleUpload} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg">Upload</button>
-          </>
+          <div className="flex items-center justify-end w-full gap-3">
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-100 rounded-lg transition-all">Cancel</button>
+            <button 
+              onClick={handleUpload} 
+              className="px-6 py-2 bg-blue-600 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95 disabled:opacity-50"
+              disabled={!selectedFile && !formData.name}
+            >
+              Upload Document
+            </button>
+          </div>
         }
       >
         <form className="space-y-4" onSubmit={handleUpload}>
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Select File</label>
+            <div className="relative group">
+              <input 
+                type="file" 
+                className="hidden" 
+                id="file-upload"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setSelectedFile(file);
+                    // Automatically set file name if not already set
+                    if (!formData.name) {
+                      setFormData(prev => ({ ...prev, name: file.name }));
+                    }
+                    // Try to guess type from extension
+                    const ext = file.name.split('.').pop()?.toUpperCase();
+                    if (ext === 'PDF' || ext === 'DOCX') {
+                      setFormData(prev => ({ ...prev, type: ext }));
+                    } else if (ext === 'ZIP' || ext === 'RAR') {
+                      setFormData(prev => ({ ...prev, type: 'ZIP' }));
+                    }
+                  }
+                }}
+              />
+              <label 
+                htmlFor="file-upload"
+                className="flex items-center justify-center gap-3 px-4 py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                  <Plus size={24} />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-bold text-slate-900">{selectedFile ? selectedFile.name : 'Choose a file...'}</div>
+                  <p className="text-[10px] text-slate-400">or drag and drop here</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <Input 
-            label="File Name" 
+            label="Override Display Name" 
             value={formData.name} 
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="e.g. Project_Plan.pdf"
@@ -203,6 +348,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

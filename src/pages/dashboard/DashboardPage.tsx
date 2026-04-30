@@ -1,44 +1,39 @@
-import { useMemo } from 'react';
-import { DASHBOARD_STATS, RECENT_ACTIVITY } from '../../dummy-data/dashboard';
+import { useMemo, useState, useEffect } from 'react';
+import { DASHBOARD_STATS } from '../../dummy-data/dashboard';
 import { PROJECTS_DATA } from '../../dummy-data/projects';
 import { CLIENTS_DATA } from '../../dummy-data/clients';
 import { useAuth } from '../../store/AuthContext';
-import { Users, Briefcase, TrendingUp, Clock, Plus, FolderOpen, Calendar, Shield, Search } from 'lucide-react';
-
-const iconMap: Record<string, any> = {
-  '1': Users,
-  '2': Briefcase,
-  '3': Users,
-  '4': TrendingUp,
-};
+import { useNavigate } from 'react-router-dom';
+import { Users, Briefcase, TrendingUp, Clock, Plus, FolderOpen, Calendar, Shield, Search, Mail } from 'lucide-react';
+import { EmailModal } from '../../components/common/EmailModal';
+import { useDashboardStats } from '../../hooks/useDashboardStats';
+import { useRecentActivity } from '../../hooks/useRecentActivity';
+import { PageTransition } from '../../components/common/PageTransition';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
-  const userProjects = useMemo(() => {
-    if (isAdmin) return PROJECTS_DATA;
-    return PROJECTS_DATA.filter(p => user?.projectAccess?.includes(p.id));
-  }, [user, isAdmin]);
+  const stats = useDashboardStats(user);
+  const { activities: realActivities, loading: loadingActivities } = useRecentActivity(user);
 
-  const stats = useMemo(() => {
-    return [
-      { id: '1', label: 'Total Clients', value: CLIENTS_DATA.length.toString(), trend: '+2', status: 'up', icon: Users },
-      { id: '2', label: 'My Projects', value: userProjects.length.toString(), trend: '', status: 'neutral', icon: Briefcase },
-      { id: '3', label: 'Active Tasks', value: '14', trend: '+5', status: 'up', icon: Calendar },
-      { id: '4', label: 'Completed', value: userProjects.filter(p => p.status === 'completed').length.toString(), trend: '100%', status: 'up', icon: TrendingUp },
-    ];
-  }, [userProjects]);
-
-  const filteredActivity = useMemo(() => {
-    if (isAdmin) return RECENT_ACTIVITY;
-    // Mock filtering activity by project title
-    const projectTitles = userProjects.map(p => p.title);
-    return RECENT_ACTIVITY.filter(a => a.type !== 'project' || projectTitles.includes(a.target));
-  }, [userProjects, isAdmin]);
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return 'Just now';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <PageTransition>
+      <div className="space-y-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Overview</h2>
@@ -85,20 +80,32 @@ export default function DashboardPage() {
             <button className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-tighter">View All logs</button>
           </div>
           <div className="divide-y divide-slate-100 overflow-y-auto max-h-[400px]">
-            {filteredActivity.length > 0 ? filteredActivity.map((activity) => (
+            {loadingActivities ? (
+               <div className="p-10 text-center animate-pulse space-y-4">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="flex gap-4">
+                       <div className="w-10 h-10 bg-slate-100 rounded-xl" />
+                       <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-slate-100 rounded w-3/4" />
+                          <div className="h-2 bg-slate-100 rounded w-1/4" />
+                       </div>
+                    </div>
+                  ))}
+               </div>
+            ) : realActivities.length > 0 ? realActivities.map((activity) => (
               <div key={activity.id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors group">
                 <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 group-hover:border-blue-100 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
                   <Clock size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-slate-600">
-                    <span className="font-bold text-slate-900">{activity.user}</span> {activity.action} <span className="font-bold text-slate-800 border-b border-slate-200">{activity.target}</span>
+                    <span className="font-bold text-slate-900">{activity.userName}</span> {activity.action} <span className="font-bold text-slate-800 border-b border-slate-200">{activity.target}</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">{activity.time}</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">{formatTime(activity.timestamp)}</p>
                 </div>
               </div>
             )) : (
-              <div className="p-10 text-center text-slate-400 text-sm font-medium">No recent activity for your projects.</div>
+              <div className="p-10 text-center text-slate-400 text-sm font-medium">No recent activity found.</div>
             )}
           </div>
         </div>
@@ -108,13 +115,15 @@ export default function DashboardPage() {
             <h3 className="font-bold text-slate-900 text-sm uppercase tracking-widest mb-4">Quick Actions</h3>
             <div className="space-y-3">
               {[
-                { label: 'Add New Client', icon: Plus },
-                { label: 'Create Project', icon: FolderOpen },
-                { label: 'Project Explorer', icon: Search },
-                { label: 'Upload Document', icon: Plus },
-              ].map((action) => (
+                { label: 'Add New Client', icon: Plus, to: '/clients', adminOnly: true },
+                { label: 'Create Project', icon: FolderOpen, to: '/projects', adminOnly: true },
+                { label: 'Send Correspondence', icon: Mail, onClick: () => setIsEmailModalOpen(true) },
+                { label: 'Project Explorer', icon: Search, to: '/explorer' },
+                { label: 'Upload Document', icon: Plus, to: '/documents' },
+              ].filter(action => !action.adminOnly || isAdmin).map((action) => (
                 <button 
                   key={action.label}
+                  onClick={() => action.to ? navigate(action.to) : action.onClick?.()}
                   className="w-full text-left px-4 py-3 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100 rounded-xl transition-all border border-slate-100 flex items-center justify-between group"
                 >
                   {action.label}
@@ -124,6 +133,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          <EmailModal 
+            isOpen={isEmailModalOpen}
+            onClose={() => setIsEmailModalOpen(false)}
+            type="team"
+          />
+
           <div className="bg-slate-900 rounded-xl p-6 text-white overflow-hidden relative group">
              <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-400/30 transition-colors" />
              <h4 className="font-bold text-lg mb-2 relative z-10">Resource Center</h4>
@@ -131,7 +146,8 @@ export default function DashboardPage() {
              <button className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors relative z-10">Open Explorer</button>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

@@ -14,6 +14,7 @@ export interface UserProfile {
   status?: 'active' | 'disabled';
   permissions?: string[]; // List of module IDs the user can see
   projectAccess?: string[]; // IDs of projects the user is allowed to access
+  fcmTokens?: string[]; // Device tokens for push notifications
   createdAt: any;
 }
 

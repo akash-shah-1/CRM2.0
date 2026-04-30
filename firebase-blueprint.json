@@ -10,6 +10,7 @@
         "displayName": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "manager", "employee"] },
         "avatarUrl": { "type": "string", "format": "uri" },
+        "fcmTokens": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "number" }
       },
       "required": ["uid", "email", "displayName", "role", "createdAt"]

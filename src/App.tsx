@@ -7,8 +7,9 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { cn } from './utils/cn';
-import { LayoutDashboard, Users, Briefcase, ChevronRight, LogOut, Shield, FileText, FolderOpen, Lock, LayoutGrid, Send, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Briefcase, ChevronRight, LogOut, Shield, FileText, FolderOpen, Lock, LayoutGrid, Send, Bell, Mail } from 'lucide-react';
 import { NotificationCenter } from './components/common/NotificationCenter';
+import { NotificationBanner } from './components/common/NotificationBanner';
 
 
 
@@ -23,6 +24,7 @@ const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
 const DocumentsPage = lazy(() => import('./pages/documents/DocumentsPage'));
 const VaultPage = lazy(() => import('./pages/vault/VaultPage'));
 const ChatPage = lazy(() => import('./pages/chat/ChatPage'));
+const CommunicationPage = lazy(() => import('./pages/communication/CommunicationPage'));
 
 
 
@@ -52,6 +54,7 @@ const ProtectedRoute = () => {
         <Route path="/documents" element={hasPermission(user, 'documents') ? <DocumentsPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/vault" element={user.role === 'admin' ? <VaultPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/chat" element={hasPermission(user, 'chat') ? <ChatPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/communication" element={hasPermission(user, 'communication') ? <CommunicationPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="*" element={<div className="text-center py-20 text-slate-400">Page not found</div>} />
       </Routes>
     </DashboardLayout>
@@ -104,11 +107,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     if (path === '/documents') return 'Document Center';
     if (path === '/vault') return 'Safe Vault';
     if (path === '/chat') return 'Team Communication';
+    if (path === '/communication') return 'Correspondence';
     return 'Nexus';
   };
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <NotificationBanner />
       <aside className="hidden md:flex w-64 flex-col bg-white border-r border-slate-200">
         <div className="p-6 border-b border-slate-100 font-bold text-xl tracking-tight leading-none">
           Nexus <span className="text-blue-600 block text-[10px] uppercase font-bold tracking-[0.2em] mt-1">Enterprise</span>
@@ -126,6 +131,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           {user?.role === 'admin' && <NavItem to="/vault" icon={Lock} label="Vault" moduleId="vault" />}
           <div className="mt-8 mb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Communication</div>
           <NavItem to="/chat" icon={Send} label="Chat" moduleId="chat" />
+          <NavItem to="/communication" icon={Mail} label="Correspondence" moduleId="communication" />
         </nav>
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 px-3 py-2 group">

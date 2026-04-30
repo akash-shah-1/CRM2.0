@@ -1,32 +1,51 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CLIENTS_DATA } from '../../dummy-data/clients';
 import { PROJECTS_DATA } from '../../dummy-data/projects';
 import { useAuth } from '../../store/AuthContext';
-import { Search, Plus, Mail, Phone, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Edit, Trash2, Filter } from 'lucide-react';
 import { useSearch } from '../../hooks/useSearch';
 import { DataTable } from '../../components/common/DataTable';
 import { ActionMenu } from '../../components/common/ActionMenu';
 import { Modal } from '../../components/ui/Modal';
 import { EmailModal } from '../../components/common/EmailModal';
 import { Input, Select } from '../../components/ui/FormElements';
+import { logActivity } from '../../utils/activity';
+import { createNotification } from '../../utils/notifications';
+import { subscribeToClients, createClient, updateClient, ClientData } from '../../services/clientService';
+import { PageTransition } from '../../components/common/PageTransition';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 export default function ClientsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
+  const [dbData, setDbData] = useState<ClientData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = subscribeToClients((data) => {
+      setDbData(data);
+      setIsLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
   const accessibleClients = useMemo(() => {
-    if (isAdmin) return CLIENTS_DATA;
+    // Merge dummy data for initial feel
+    const combined = [...dbData, ...CLIENTS_DATA];
+    
+    if (isAdmin) return combined;
     
     // Get accessible projects
     const userProjects = PROJECTS_DATA.filter(p => user?.projectAccess?.includes(p.id));
     const clientNames = new Set(userProjects.map(p => p.client));
     
-    return CLIENTS_DATA.filter(c => clientNames.has(c.name));
-  }, [user, isAdmin]);
+    return combined.filter(c => clientNames.has(c.name));
+  }, [user, isAdmin, dbData]);
 
   const [data, setData] = useState(accessibleClients);
 
-  useMemo(() => {
+  useEffect(() => {
     setData(accessibleClients);
   }, [accessibleClients]);
 
@@ -34,7 +53,7 @@ export default function ClientsPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<{ email: string, name: string } | null>(null);
   const [editingClient, setEditingClient] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: '', company: '', email: '', status: 'lead' });
+  const [formData, setFormData] = useState({ name: '', company: '', email: '', status: 'lead' as 'active' | 'lead' | 'inactive', phone: '' });
 
   const [statusFilter, setStatusFilter] = useState('All Status');
   const { searchTerm, setSearchTerm, filteredData: searchedData } = useSearch(data, ['name', 'company', 'email']);
@@ -47,32 +66,67 @@ export default function ClientsPage() {
   const handleOpenModal = (client?: any) => {
     if (client) {
       setEditingClient(client);
-      setFormData({ name: client.name, company: client.company, email: client.email, status: client.status });
+      setFormData({ 
+        name: client.name, 
+        company: client.company, 
+        email: client.email, 
+        status: client.status as 'active' | 'lead' | 'inactive', 
+        phone: client.phone || '' 
+      });
     } else {
       setEditingClient(null);
-      setFormData({ name: '', company: '', email: '', status: 'lead' });
+      setFormData({ name: '', company: '', email: '', status: 'lead', phone: '' });
     }
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingClient) {
-      setData(data.map(c => c.id === editingClient.id ? { ...c, ...formData } : c));
+      if (editingClient.id.length > 10) { // Firestore ID
+        await updateClient(editingClient.id, formData);
+      }
+      
+      logActivity({
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || 'Unknown',
+        action: 'updated client information',
+        target: formData.name,
+        type: 'client'
+      });
     } else {
-      const newClient = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...formData,
-        phone: '+1 555-0000'
-      };
-      setData([newClient, ...data]);
+      await createClient(formData);
+
+      await createNotification({
+        title: 'New Client Partnership',
+        message: `${formData.name} from ${formData.company} has been added to the CRM.`,
+        type: 'info',
+        userId: 'admin'
+      });
+
+      logActivity({
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || 'Unknown',
+        action: 'onboarded new client',
+        target: formData.name,
+        type: 'client'
+      });
     }
     setIsModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
+    const client = data.find(c => c.id === id);
     if (confirm('Are you sure you want to delete this client?')) {
       setData(data.filter(c => c.id !== id));
+      
+      logActivity({
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || 'Unknown',
+        action: 'removed client',
+        target: client?.name || 'Unknown',
+        type: 'client'
+      });
     }
   };
 
@@ -146,58 +200,80 @@ export default function ClientsPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Clients</h2>
-          <p className="text-slate-500 text-sm">Manage your enterprise client relationships.</p>
-        </div>
-        <button 
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm"
-          onClick={() => handleOpenModal()}
-        >
-          <Plus size={18} />
-          Add Client
-        </button>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search clients..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            />
+    <PageTransition>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Clients</h2>
+            <p className="text-slate-500 text-sm text-left">Manage your enterprise client relationships.</p>
           </div>
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-2 focus:outline-none text-slate-600"
+          <button 
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm transition-all active:scale-95"
+            onClick={() => handleOpenModal()}
           >
-            <option>All Status</option>
-            <option>Active</option>
-            <option>Lead</option>
-            <option>Inactive</option>
-          </select>
+            <Plus size={18} />
+            Add Client
+          </button>
         </div>
 
-        <DataTable 
-          columns={columns}
-          data={filteredData}
-        />
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center gap-4 bg-slate-50/30">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search clients..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              />
+            </div>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 focus:outline-none text-slate-600 shadow-sm"
+            >
+              <option>All Status</option>
+              <option>Active</option>
+              <option>Lead</option>
+              <option>Inactive</option>
+            </select>
+          </div>
 
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-           <div className="text-xs text-slate-500">Showing {filteredData.length} clients</div>
-           <div className="flex items-center gap-2">
-              <button disabled className="px-3 py-1 text-xs font-medium text-slate-400 border border-slate-100 rounded">Prev</button>
-              <button className="px-3 py-1 text-xs font-medium text-slate-600 border border-slate-100 rounded hover:bg-slate-50">Next</button>
-           </div>
+          {isLoading ? (
+            <div className="p-4 space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                   <div className="flex items-center gap-3">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="space-y-1">
+                         <Skeleton className="h-4 w-40" />
+                         <Skeleton className="h-2 w-20" />
+                      </div>
+                   </div>
+                   <Skeleton className="h-4 w-24" />
+                   <Skeleton className="h-4 w-32" />
+                   <Skeleton className="w-8 h-8 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <DataTable 
+                columns={columns}
+                data={filteredData}
+              />
+
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+                <div className="text-xs text-slate-500">Showing {filteredData.length} clients</div>
+                <div className="flex items-center gap-2">
+                    <button disabled className="px-3 py-1 text-xs font-medium text-slate-300 border border-slate-100 rounded bg-white">Prev</button>
+                    <button className="px-3 py-1 text-xs font-medium text-slate-600 border border-slate-100 rounded hover:bg-slate-50 bg-white">Next</button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      </div>
 
       <Modal 
         isOpen={isModalOpen} 
@@ -257,7 +333,8 @@ export default function ClientsPage() {
           type="client"
         />
       )}
-    </div>
+      </div>
+    </PageTransition>
   );
 }
 

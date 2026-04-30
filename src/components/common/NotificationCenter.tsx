@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Clock, X, Info, AlertTriangle, AlertCircle } from 'lucide-react';
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../store/AuthContext';
@@ -28,11 +28,21 @@ export function NotificationCenter() {
     // In a real app, this would be a 'notifications' collection
     // For this prototype, we'll use a mocked listener or listen to 'activity' if available
     // But let's assume a notifications collection for best practice
-    const q = query(
-      collection(db, 'notifications'),
-      orderBy('timestamp', 'desc'),
-      limit(20)
-    );
+    let q;
+    if (user?.role === 'admin') {
+      q = query(
+        collection(db, 'notifications'),
+        orderBy('timestamp', 'desc'),
+        limit(20)
+      );
+    } else {
+      q = query(
+        collection(db, 'notifications'),
+        where('userId', '==', user?.uid),
+        orderBy('timestamp', 'desc'),
+        limit(20)
+      );
+    }
 
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));

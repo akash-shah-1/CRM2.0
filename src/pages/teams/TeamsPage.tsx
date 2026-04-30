@@ -7,7 +7,7 @@ import { PROJECTS_DATA } from '../../dummy-data/projects';
 import { handleFirestoreError, OperationType } from '../../utils/firebaseErrorHandler';
 import { useAuth } from '../../store/AuthContext';
 import { cn } from '../../utils/cn';
-import { Shield, ShieldCheck, Mail, Edit, Trash2, Search, Plus, Loader2 } from 'lucide-react';
+import { Shield, ShieldCheck, Mail, Edit, Trash2, Search, Plus, Loader2, Filter } from 'lucide-react';
 import { useSearch } from '../../hooks/useSearch';
 import { DataTable } from '../../components/common/DataTable';
 import { ActionMenu } from '../../components/common/ActionMenu';
@@ -15,6 +15,10 @@ import { Modal } from '../../components/ui/Modal';
 import { EmailModal } from '../../components/common/EmailModal';
 import { Input, Select } from '../../components/ui/FormElements';
 import { UserRole, UserProfile } from '../../types/auth';
+import { logActivity } from '../../utils/activity';
+import { createNotification } from '../../utils/notifications';
+import { PageTransition } from '../../components/common/PageTransition';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 export default function TeamsPage() {
   const { user: currentUser } = useAuth();
@@ -149,6 +153,21 @@ export default function TeamsPage() {
           avatarUrl: null,
           createdAt: new Date().getTime()
         });
+
+        await createNotification({
+          title: 'Organization Expansion',
+          message: `${formData.displayName} has been onboarded to the platform as ${formData.role}.`,
+          type: 'success',
+          userId: 'admin'
+        });
+
+        logActivity({
+          userId: currentUser?.uid || 'unknown',
+          userName: currentUser?.displayName || 'Admin',
+          action: 'created new user profile',
+          target: formData.displayName || formData.email,
+          type: 'team'
+        });
       }
       setIsModalOpen(false);
     } catch (error: any) {
@@ -165,10 +184,20 @@ export default function TeamsPage() {
 
   const handleActivate = async (uid: string) => {
     try {
+      const member = data.find(m => m.uid === uid);
       const userRef = doc(db, 'users', uid);
       await updateDoc(userRef, {
         status: 'active'
       });
+
+      logActivity({
+        userId: currentUser?.uid || 'unknown',
+        userName: currentUser?.displayName || 'Admin',
+        action: 're-activated user profile',
+        target: member?.displayName || member?.email || 'Unknown',
+        type: 'team'
+      });
+
       alert('User has been re-activated successfully.');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
@@ -178,12 +207,22 @@ export default function TeamsPage() {
 
   const handleDelete = async (uid: string) => {
     if (!uid) return;
+    const member = data.find(m => m.uid === uid);
     if (confirm('Are you sure you want to disable this user? They will be signed out and unable to access the system.')) {
       try {
         const userRef = doc(db, 'users', uid);
         await updateDoc(userRef, {
           status: 'disabled'
         });
+
+        logActivity({
+          userId: currentUser?.uid || 'unknown',
+          userName: currentUser?.displayName || 'Admin',
+          action: 'de-activated user profile',
+          target: member?.displayName || member?.email || 'Unknown',
+          type: 'team'
+        });
+
         alert('User has been disabled successfully.');
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
@@ -284,56 +323,67 @@ export default function TeamsPage() {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <Loader2 className="animate-spin text-blue-600" size={32} />
-        <p className="text-slate-500 text-sm">Loading team members...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Team Members</h2>
-          <p className="text-slate-500 text-sm">Manage roles and permissions for your organization.</p>
-        </div>
-        {isAdmin ? (
-          <button 
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
-            onClick={() => handleOpenModal()}
-          >
-            <Plus size={18} />
-            Create User Profile
-          </button>
-        ) : (
-          <div className="bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-            Contact an admin to invite new members or change roles.
+    <PageTransition>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Team Members</h2>
+            <p className="text-slate-500 text-sm text-left">Manage roles and permissions for your organization.</p>
           </div>
-        )}
-      </div>
+          {isAdmin ? (
+            <button 
+              className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm flex items-center gap-2 transition-all active:scale-95"
+              onClick={() => handleOpenModal()}
+            >
+              <Plus size={18} />
+              Create User Profile
+            </button>
+          ) : (
+            <div className="bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-medium">
+              Contact an admin to invite new members or change roles.
+            </div>
+          )}
+        </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="p-4 border-b border-slate-100">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search team members..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search team members..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-4 space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                   <div className="flex items-center gap-3">
+                      <Skeleton className="w-8 h-8 rounded-full" />
+                      <div className="space-y-1">
+                         <Skeleton className="h-4 w-40" />
+                         <Skeleton className="h-2 w-20" />
+                      </div>
+                   </div>
+                   <Skeleton className="h-4 w-24" />
+                   <Skeleton className="h-4 w-32" />
+                   <Skeleton className="w-8 h-8 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <DataTable 
+              columns={columns}
+              data={filteredData}
             />
-          </div>
+          )}
         </div>
-
-        <DataTable 
-          columns={columns}
-          data={filteredData}
-        />
-      </div>
 
       <Modal 
         isOpen={isModalOpen} 
@@ -461,7 +511,8 @@ export default function TeamsPage() {
           type="team"
         />
       )}
-    </div>
+      </div>
+    </PageTransition>
   );
 }
 

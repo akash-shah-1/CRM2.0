@@ -150,8 +150,10 @@ export default function ChatPage() {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
+    const userMsg = newMessage.trim();
+
     const msgData: any = {
-      text: newMessage,
+      text: userMsg,
       senderId: user?.uid || 'unknown',
       senderName: user?.displayName || 'You',
       timestamp: serverTimestamp(),
@@ -276,6 +278,7 @@ export default function ChatPage() {
                   <span className="truncate">{member.displayName || member.name}</span>
                 </button>
               ))}
+
             </div>
           </div>
         </div>
