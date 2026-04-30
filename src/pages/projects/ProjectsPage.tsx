@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PROJECTS_DATA } from '../../dummy-data/projects';
 import { useAuth } from '../../store/AuthContext';
-import { Calendar, Users, CheckCircle2, CircleDashed, PauseCircle, Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Calendar, Users, CheckCircle2, CircleDashed, PauseCircle, Plus, Search, Edit, Trash2, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useSearch } from '../../hooks/useSearch';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/FormElements';
@@ -29,16 +30,16 @@ export default function ProjectsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   
-  const [dbData, setDbData] = useState<ProjectData[]>([]);
+  const navigate = useNavigate();
+  const [dbData, setDbData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToProjects(isAdmin, user.projectAccess || [], (data) => {
-      // Map Firestore fields to local UI fields if necessary
       const mappedDocs = data.map(p => ({
         ...p,
-        title: p.name, // The dummy data uses 'title', but Firestore uses 'name'
+        title: p.name,
         deadline: 'TBD',
         progress: p.status === 'completed' ? 100 : (p.status === 'active' ? 45 : 0),
         members: 1
@@ -50,7 +51,6 @@ export default function ProjectsPage() {
   }, [user, isAdmin]);
 
   const accessibleData = useMemo(() => {
-    // Merge dummy data
     const dummyMapped = PROJECTS_DATA.map(p => ({ 
       ...p, 
       id: p.id,
@@ -69,12 +69,13 @@ export default function ProjectsPage() {
   useEffect(() => {
     setData(accessibleData);
   }, [accessibleData]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
-  const [formData, setFormData] = useState({ title: '', client: '', status: 'active', deadline: '' });
+  const [formData, setFormData] = useState({ name: '', clientName: '', status: 'active', deadline: '' });
 
   const [statusFilter, setStatusFilter] = useState('All Projects');
-  const { searchTerm, setSearchTerm, filteredData: searchedData } = useSearch(data, ['title', 'client']);
+  const { searchTerm, setSearchTerm, filteredData: searchedData } = useSearch(data, ['name', 'clientName']);
 
   const filteredData = useMemo(() => {
     if (statusFilter === 'All Projects') return searchedData;
@@ -85,10 +86,10 @@ export default function ProjectsPage() {
   const handleOpenModal = (project?: any) => {
     if (project) {
       setEditingProject(project);
-      setFormData({ title: project.title, client: project.client, status: project.status, deadline: project.deadline });
+      setFormData({ name: project.name || project.title, clientName: project.clientName || project.client, status: project.status, deadline: project.deadline || 'TBD' });
     } else {
       setEditingProject(null);
-      setFormData({ title: '', client: '', status: 'active', deadline: '' });
+      setFormData({ name: '', clientName: '', status: 'active', deadline: '' });
     }
     setIsModalOpen(true);
   };
@@ -96,10 +97,10 @@ export default function ProjectsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProject) {
-      if (editingProject.id.length > 10) { // Firestore Ref
+      if (editingProject.id.length > 10) {
         await updateProject(editingProject.id, {
-          name: formData.title,
-          clientId: formData.client,
+          name: formData.name,
+          clientName: formData.clientName,
           status: formData.status as any
         });
       }
@@ -108,22 +109,23 @@ export default function ProjectsPage() {
         userId: user?.uid || 'unknown',
         userName: user?.displayName || 'Unknown',
         action: 'updated project',
-        target: formData.title,
+        target: formData.name,
         type: 'project',
         projectId: editingProject.id
       });
     } else {
       const id = await createProject({
-        name: formData.title,
-        clientId: formData.client,
-        status: formData.status as any
+        name: formData.name,
+        clientName: formData.clientName,
+        status: formData.status as any,
+        clientId: 'manual-entry'
       });
 
       logActivity({
         userId: user?.uid || 'unknown',
         userName: user?.displayName || 'Unknown',
         action: 'created project',
-        target: formData.title,
+        target: formData.name,
         type: 'project',
         projectId: id || 'unknown'
       });
@@ -149,121 +151,135 @@ export default function ProjectsPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Projects</h2>
-            <p className="text-slate-500 text-sm text-left">Track timelines and resource allocation across your portfolio.</p>
+            <h2 className="text-xl font-bold text-text-primary tracking-tight">Active Projects</h2>
+            <p className="text-text-secondary text-[13px]">Track timelines and resourcing across the portfolio.</p>
           </div>
           {isAdmin && (
             <button 
               onClick={() => handleOpenModal()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover transition-all text-[13px] font-bold shadow-sm active:scale-95"
             >
-              <Plus size={18} />
-              New Project
+              <Plus size={16} />
+              + New Project
             </button>
           )}
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative max-w-md w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
             <input 
               type="text" 
-              placeholder="Search projects..." 
+              placeholder="Filter projects..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              className="w-full pl-10 pr-4 py-2 bg-white border border-border rounded-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all outline-none"
             />
           </div>
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/10 shadow-sm"
-          >
-            <option>All Projects</option>
-            <option value="planning">Planning</option>
-            <option value="active">Active</option>
-            <option value="on_hold">On Hold</option>
-            <option value="completed">Completed</option>
-          </select>
+          <div className="relative w-full sm:w-48">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-white border border-border rounded-md text-[13px] focus:outline-none focus:border-primary transition-all text-text-secondary outline-none appearance-none"
+            >
+              <option>All Projects</option>
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="on_hold">On Hold</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white rounded-md border border-border p-6 shadow-sm animate-pulse space-y-4">
                 <div className="flex justify-between">
-                   <Skeleton className="h-6 w-24 rounded-full" />
-                   <Skeleton className="h-4 w-32" />
+                   <div className="h-4 bg-bg-light rounded-md w-20" />
+                   <div className="h-4 bg-bg-light rounded-md w-24" />
                 </div>
-                <Skeleton className="h-8 w-full" />
-                <div className="flex gap-4">
-                   <Skeleton className="h-4 w-24" />
-                   <Skeleton className="h-4 w-24" />
+                <div className="h-6 bg-bg-light rounded-md w-3/4" />
+                <div className="space-y-2">
+                   <div className="h-2 bg-bg-light rounded-md w-full" />
+                   <div className="h-2 bg-bg-light rounded-md w-1/2" />
                 </div>
-                <Skeleton className="h-10 w-full" />
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredData.map((project) => {
               const Icon = statusIconMap[project.status] || CircleDashed;
+              const statusLabel = (project.status as string).replace('_', ' ');
+              const projectName = project.name || project.title;
+              const clientName = project.clientName || project.client;
               return (
-                <div key={project.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow group relative">
-                  {isAdmin && (
-                    <div className="absolute top-4 right-4">
-                      <ActionMenu 
-                        items={[
-                          { label: 'Edit Project', onClick: () => handleOpenModal(project), icon: Edit },
-                          { label: 'Archive Project', onClick: () => handleDelete(project.id), variant: 'danger', icon: Trash2 },
-                        ]}
-                      />
-                    </div>
-                  )}
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4 mr-8 text-left">
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColors[project.status]}`}>
-                        <Icon size={12} />
-                        {(project.status as string).replace('_', ' ')}
-                      </div>
-                      <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{project.client || (project as any).clientName}</div>
+                <div key={project.id} className="bg-white rounded-md border border-border shadow-sm overflow-hidden hover:shadow-md transition-all group flex flex-col">
+                  <div className="p-5 flex-1">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                        project.status === 'active' ? 'bg-success/10 text-success border-success/20' :
+                        project.status === 'planning' ? 'bg-primary/10 text-primary border-primary/20' :
+                        project.status === 'on_hold' ? 'bg-warning/10 text-warning border-warning/20' :
+                        'bg-slate-100 text-slate-500 border-slate-200'
+                      }`}>
+                         <Icon size={12} />
+                         {statusLabel}
+                      </span>
+                      <div className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">{clientName}</div>
                     </div>
                     
-                    <h3 className="text-lg font-bold text-slate-900 mb-2 truncate group-hover:text-blue-600 transition-colors pr-10 text-left">{project.title || (project as any).name}</h3>
-                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-6">
-                      <div className="flex items-center gap-1.5"><Calendar size={14} /> Due {project.deadline}</div>
-                      <div className="flex items-center gap-1.5"><Users size={14} /> {(project as any).members} members</div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[15px] font-bold text-text-primary group-hover:text-primary transition-colors leading-snug">{projectName}</h3>
+                      {isAdmin && (
+                        <ActionMenu 
+                          items={[
+                            { label: 'Edit Project', onClick: () => handleOpenModal(project), icon: Edit },
+                            { label: 'Archive', onClick: () => handleDelete(project.id), variant: 'danger', icon: Trash2 },
+                          ]}
+                        />
+                      )}
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <div className="flex items-center gap-4 text-[12px] text-text-secondary mb-5">
+                      <div className="flex items-center gap-1.5"><Calendar size={14} /> {project.deadline}</div>
+                      <div className="flex items-center gap-1.5"><Users size={14} /> {(project as any).members} Members</div>
+                    </div>
+
+                    <div className="space-y-2 mt-auto">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-text-primary">
                         <span>Progress</span>
                         <span>{(project as any).progress}%</span>
                       </div>
-                      <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                      <div className="h-1.5 w-full bg-slate-100 rounded-md overflow-hidden">
                         <div 
-                          className="h-full bg-blue-500 rounded-full transition-all duration-500" 
+                          className="h-full bg-primary rounded-md transition-all duration-500 shadow-[0_0_8px_rgba(124,92,255,0.4)]" 
                           style={{ width: `${(project as any).progress}%` }}
                         />
                       </div>
                     </div>
                   </div>
-                  <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex -space-x-2">
+                  <div className="px-5 py-3 bg-bg-light/30 border-t border-border flex items-center justify-between">
+                    <div className="flex -space-x-1.5">
                       {[1, 2, 3].map(i => (
-                        <div key={i} className="w-7 h-7 rounded-full bg-white border-2 border-slate-50 flex items-center justify-center text-[10px] font-bold text-slate-400 shadow-sm">
+                        <div key={i} className="w-7 h-7 rounded-md bg-white border border-border flex items-center justify-center text-[10px] font-bold text-text-secondary shadow-sm">
                           {String.fromCharCode(64 + i)}
                         </div>
                       ))}
                       {(project as any).members > 3 && (
-                        <div className="w-7 h-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">+{(project as any).members - 3}</div>
+                        <div className="w-7 h-7 rounded-md bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-[9px] font-bold">+{(project as any).members - 3}</div>
                       )}
                     </div>
-                    <button className="text-xs font-bold text-slate-600 hover:text-slate-900 uppercase tracking-widest transition-colors font-mono">
-                      View Case Study
+                    <button 
+                      onClick={() => navigate('/explorer')}
+                      className="text-[11px] font-bold text-primary hover:underline uppercase tracking-wider"
+                    >
+                      Explorer
                     </button>
                   </div>
                 </div>
@@ -277,26 +293,26 @@ export default function ProjectsPage() {
         onClose={() => setIsModalOpen(false)} 
         title={editingProject ? 'Edit Project' : 'New Project'}
         footer={
-          <>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-            <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors">
-              {editingProject ? 'Save Changes' : 'Create Project'}
+          <div className="flex items-center justify-end gap-3 w-full">
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[13px] font-bold text-text-secondary hover:bg-bg-light rounded-md transition-all">Cancel</button>
+            <button onClick={handleSubmit} className="px-5 py-2 text-[13px] font-bold text-white bg-primary hover:bg-primary-hover rounded-md shadow-sm shadow-primary/20 transition-all active:scale-95">
+              {editingProject ? 'Update Project' : 'Create Project'}
             </button>
-          </>
+          </div>
         }
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
           <Input 
-            label="Project Title" 
-            value={formData.title} 
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
+            label="Project Name" 
+            value={formData.name} 
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
             placeholder="e.g. Website Redesign"
             required
           />
           <Input 
-            label="Client" 
-            value={formData.client} 
-            onChange={(e) => setFormData({ ...formData, client: e.target.value })} 
+            label="Client Name" 
+            value={formData.clientName} 
+            onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} 
             placeholder="e.g. Acme Corp"
             required
           />

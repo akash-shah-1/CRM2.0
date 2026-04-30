@@ -8,13 +8,14 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export function Modal({ isOpen, onClose, title, children, footer, size = 'lg' }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   const sizeClasses = {
+    sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
@@ -41,7 +42,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'lg' }:
       <div 
         ref={modalRef}
         className={cn(
-          "bg-white rounded-xl shadow-xl w-full overflow-hidden animate-in zoom-in-95 duration-200",
+          "bg-white rounded-md shadow-xl w-full overflow-hidden animate-in zoom-in-95 duration-200",
           sizeClasses[size]
         )}
       >
@@ -49,7 +50,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'lg' }:
           <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
           <button 
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
           >
             <X size={20} />
           </button>

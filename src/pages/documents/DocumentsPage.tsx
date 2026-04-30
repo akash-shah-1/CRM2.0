@@ -6,6 +6,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { File, Download, Search, Plus, Filter, FileText, FileImage, FileArchive, Trash2, Edit } from 'lucide-react';
 import { ActionMenu } from '../../components/common/ActionMenu';
 import { Modal } from '../../components/ui/Modal';
+import { FileViewerModal } from '../../components/common/FileViewerModal';
 import { Input, Select } from '../../components/ui/FormElements';
 import { logActivity } from '../../utils/activity';
 import { createNotification } from '../../utils/notifications';
@@ -49,6 +50,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [viewingFile, setViewingFile] = useState<{ name: string, url: string, type: string } | null>(null);
 
   const [formData, setFormData] = useState({ name: '', type: 'PDF', projectId: projectId || '1' });
   
@@ -140,31 +142,36 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       header: 'Document Name',
       key: 'name',
       render: (doc: any) => (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
+        <div 
+          className="flex items-center gap-3 cursor-pointer group/name"
+          onClick={() => doc.type === 'PDF' && setViewingFile({ name: doc.name, url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', type: 'pdf' })}
+        >
+          <div className="w-9 h-9 rounded-md bg-bg-light flex items-center justify-center border border-border group-hover/name:bg-primary/10 transition-colors">
             {getFileIcon(doc.type)}
           </div>
           <div>
-            <div className="font-semibold text-slate-900 text-sm">{doc.name}</div>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{doc.type} • {doc.size}</div>
+            <div className="font-semibold text-text-primary text-[13.5px] group-hover/name:text-primary transition-colors">{doc.name}</div>
+            <div className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">{doc.type} • {doc.size}</div>
           </div>
         </div>
       ),
     },
     {
-      header: 'Project / Association',
+      header: 'Association',
       key: 'projectId',
-      className: 'text-sm font-medium text-slate-600',
+      render: (doc: any) => (
+        <span className="text-[13px] font-medium text-text-secondary">{doc.projectId}</span>
+      ),
     },
     {
-      header: 'Uploaded By',
+      header: 'By',
       key: 'uploadedBy',
       render: (doc: any) => (
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200">
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary border border-primary/20">
             {doc.uploadedBy?.charAt(0) || '?'}
           </div>
-          <span className="text-xs text-slate-600 font-medium">{doc.uploadedBy || 'Unknown User'}</span>
+          <span className="text-[12px] text-text-secondary font-medium">{doc.uploadedBy || 'Unknown User'}</span>
         </div>
       ),
     },
@@ -173,12 +180,13 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       key: 'actions',
       align: 'right' as const,
       render: (item: any) => (
-        <div className="flex items-center justify-end gap-2">
-          <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent">
+        <div className="flex items-center justify-end gap-1">
+          <button className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-primary hover:bg-primary/5 rounded transition-all">
             <Download size={16} />
           </button>
           <ActionMenu 
             items={[
+              { label: 'View Document', onClick: () => item.type === 'PDF' && setViewingFile({ name: item.name, url: item.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', type: 'pdf' }), icon: FileText },
               { label: 'Rename', onClick: () => console.log('Rename', item.id) },
               { label: 'Share Link', onClick: () => console.log('Share', item.id) },
               { label: 'Delete', onClick: () => handleDelete(item.id, !!item.createdAt && typeof item.createdAt !== 'string'), variant: 'danger' },
@@ -191,35 +199,35 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
 
   return (
     <PageTransition>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Document Center</h2>
-            <p className="text-slate-500 text-sm text-left">Centralized repository for project assets and contracts.</p>
+            <h2 className="text-xl font-bold text-text-primary tracking-tight">Document Center</h2>
+            <p className="text-text-secondary text-[13px]">Centralized repository for project assets and contracts.</p>
           </div>
           <button 
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm transition-all active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-all text-[13px] font-bold shadow-sm active:scale-95"
             onClick={() => setIsModalOpen(true)}
           >
-            <Plus size={18} />
-            Upload File
+            <Plus size={16} />
+            + Upload File
           </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
+        <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
+          <div className="p-4 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
               <input 
                 type="text" 
-                placeholder="Search documents by name or project..." 
+                placeholder="Search documents..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                className="w-full pl-10 pr-4 py-2 bg-bg-light border border-border rounded text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
-              <button className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors uppercase tracking-widest">
+              <button className="inline-flex items-center gap-2 px-3 py-2 text-[12px] font-bold text-text-secondary bg-white border border-border rounded hover:bg-bg-light transition-all">
                 <Filter size={14} />
                 Filter
               </button>
@@ -227,19 +235,18 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
           </div>
 
           {isLoading ? (
-            <div className="p-4 space-y-4">
+            <div className="p-10 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center justify-between gap-4">
+                <div key={i} className="flex items-center justify-between gap-4 animate-pulse">
                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-10 h-10" />
-                      <div className="space-y-1">
-                         <Skeleton className="h-4 w-40" />
-                         <Skeleton className="h-2 w-20" />
+                      <div className="w-9 h-9 rounded bg-bg-light" />
+                      <div className="space-y-2">
+                         <div className="h-3 bg-bg-light rounded w-40" />
+                         <div className="h-2 bg-bg-light rounded w-20" />
                       </div>
                    </div>
-                   <Skeleton className="h-4 w-24" />
-                   <Skeleton className="h-4 w-32" />
-                   <Skeleton className="w-8 h-8 rounded-full" />
+                   <div className="h-4 bg-bg-light rounded w-24" />
+                   <div className="h-4 bg-bg-light rounded w-32" />
                 </div>
               ))}
             </div>
@@ -247,6 +254,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
             <DataTable 
               columns={columns}
               data={filteredData}
+              showCheckboxes={true}
             />
           )}
         </div>
@@ -257,10 +265,10 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
         title="Upload New Document"
         footer={
           <div className="flex items-center justify-end w-full gap-3">
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-100 rounded-lg transition-all">Cancel</button>
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[13px] font-bold text-text-secondary hover:bg-bg-light rounded transition-all">Cancel</button>
             <button 
               onClick={handleUpload} 
-              className="px-6 py-2 bg-blue-600 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95 disabled:opacity-50"
+              className="px-5 py-2 bg-primary text-white text-[13px] font-bold rounded shadow-sm shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50"
               disabled={!selectedFile && !formData.name}
             >
               Upload Document
@@ -270,7 +278,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       >
         <form className="space-y-4" onSubmit={handleUpload}>
           <div className="space-y-2">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Select File</label>
+            <label className="text-[12px] font-semibold text-text-primary">Source File</label>
             <div className="relative group">
               <input 
                 type="file" 
@@ -280,11 +288,9 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
                   const file = e.target.files?.[0];
                   if (file) {
                     setSelectedFile(file);
-                    // Automatically set file name if not already set
                     if (!formData.name) {
                       setFormData(prev => ({ ...prev, name: file.name }));
                     }
-                    // Try to guess type from extension
                     const ext = file.name.split('.').pop()?.toUpperCase();
                     if (ext === 'PDF' || ext === 'DOCX') {
                       setFormData(prev => ({ ...prev, type: ext }));
@@ -296,28 +302,28 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
               />
               <label 
                 htmlFor="file-upload"
-                className="flex items-center justify-center gap-3 px-4 py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer group"
+                className="flex flex-col items-center justify-center gap-3 px-4 py-10 border-2 border-dashed border-border rounded hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
               >
-                <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                <div className="w-12 h-12 rounded bg-bg-light flex items-center justify-center text-text-secondary group-hover:bg-primary group-hover:text-white transition-all">
                   <Plus size={24} />
                 </div>
-                <div className="text-left">
-                  <div className="text-sm font-bold text-slate-900">{selectedFile ? selectedFile.name : 'Choose a file...'}</div>
-                  <p className="text-[10px] text-slate-400">or drag and drop here</p>
+                <div className="text-center">
+                  <div className="text-[13px] font-bold text-text-primary">{selectedFile ? selectedFile.name : 'Click to browse...'}</div>
+                  <p className="text-[11px] text-text-secondary">Supported: PDF, FIGMA, DOCX, ZIP</p>
                 </div>
               </label>
             </div>
           </div>
 
           <Input 
-            label="Override Display Name" 
+            label="Display Name" 
             value={formData.name} 
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g. Project_Plan.pdf"
+            placeholder="e.g. Sales Report 2026"
             required
           />
           <Select 
-            label="File Type" 
+            label="File Type / Category" 
             value={formData.type}
             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
             options={[
@@ -330,20 +336,26 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
         </form>
       </Modal>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+      <FileViewerModal 
+        isOpen={!!viewingFile}
+        onClose={() => setViewingFile(null)}
+        file={viewingFile}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'PDF Docs', count: 12, color: 'bg-red-50 text-red-600' },
-          { label: 'Images', count: 45, color: 'bg-purple-50 text-purple-600' },
-          { label: 'Prototypes', count: 8, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Archives', count: 3, color: 'bg-slate-50 text-slate-600' },
+          { label: 'PDF Docs', count: 12, color: 'text-rose-500', bg: 'bg-rose-50' },
+          { label: 'Images / Assets', count: 45, color: 'text-purple-500', bg: 'bg-purple-50' },
+          { label: 'Cloud Links', count: 8, color: 'text-blue-500', bg: 'bg-blue-50' },
+          { label: 'Archives', count: 3, color: 'text-slate-500', bg: 'bg-slate-50' },
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-slate-300 transition-colors cursor-default">
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</div>
-              <div className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stat.count}</div>
+          <div key={i} className="bg-white p-5 rounded-lg border border-border shadow-sm flex items-center gap-4 group hover:border-primary/30 transition-all cursor-default">
+            <div className={`w-12 h-12 rounded flex items-center justify-center ${stat.bg} ${stat.color} transition-all group-hover:bg-primary group-hover:text-white`}>
+              <File size={20} />
             </div>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold ${stat.color}`}>
-              i
+            <div>
+              <div className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-0.5">{stat.label}</div>
+              <div className="text-xl font-bold text-text-primary leading-none">{stat.count}</div>
             </div>
           </div>
         ))}

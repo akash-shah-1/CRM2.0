@@ -190,16 +190,16 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+    <div className="flex h-[calc(100vh-8.5rem)] bg-white border border-border rounded-md overflow-hidden shadow-sm">
       {/* Sidebar */}
-      <div className="w-64 border-r border-slate-100 flex flex-col bg-slate-50/10">
-        <div className="p-4 border-b border-slate-100">
+      <div className="w-64 border-r border-border flex flex-col bg-bg-light/30">
+        <div className="p-4 border-b border-border">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
             <input 
               type="text" 
               placeholder="Jump to..." 
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-100/50 border-transparent rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 bg-white border border-border rounded-md text-[12px] focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-all"
             />
           </div>
         </div>
@@ -207,17 +207,17 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto p-2 space-y-4">
           {/* Channels */}
           <div>
-            <div className="px-3 mb-2 flex items-center justify-between group">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Channels</span>
-              <button className="text-slate-400 hover:text-slate-600">
+            <div className="px-3 mb-1.5 flex items-center justify-between group">
+              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Channels</span>
+              <button className="text-text-secondary hover:text-text-primary transition-colors">
                 <Plus size={14} />
               </button>
             </div>
             <div className="space-y-0.5">
               {isLoadingChannels ? (
-                <div className="px-3 py-2 text-[10px] text-slate-400 animate-pulse">Loading channels...</div>
+                <div className="px-3 py-2 text-[10px] text-text-secondary animate-pulse font-bold">LOADING...</div>
               ) : filteredChannels.length === 0 ? (
-                <div className="px-3 py-2 text-[10px] text-slate-400">No channels found</div>
+                <div className="px-3 py-2 text-[10px] text-text-secondary font-medium">No channels found</div>
               ) : filteredChannels.map((channel) => (
                 <button
                   key={channel.id}
@@ -226,13 +226,13 @@ export default function ChatPage() {
                     setActiveDMId(null);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                    "w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all",
                     activeChannelId === channel.id && !activeDMId 
-                      ? "bg-blue-50 text-blue-600 shadow-sm border border-blue-100/50" 
-                      : "text-slate-600 hover:bg-slate-100"
+                      ? "bg-primary text-white shadow-sm shadow-primary/20" 
+                      : "text-text-secondary hover:bg-white hover:text-text-primary"
                   )}
                 >
-                  {channel.type === 'private' ? <Lock size={12} /> : <Hash size={12} />}
+                  {channel.type === 'private' ? <Lock size={12} className={cn(activeChannelId === channel.id && !activeDMId ? "text-white" : "text-text-secondary")} /> : <Hash size={12} className={cn(activeChannelId === channel.id && !activeDMId ? "text-white" : "text-text-secondary")} />}
                   <span className="truncate">{channel.name}</span>
                 </button>
               ))}
@@ -241,17 +241,17 @@ export default function ChatPage() {
 
           {/* Direct Messages */}
           <div>
-            <div className="px-3 mb-2 flex items-center justify-between group">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Direct Messages</span>
-              <button className="text-slate-400 hover:text-slate-600">
+            <div className="px-3 mb-1.5 flex items-center justify-between group">
+              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Direct Messages</span>
+              <button className="text-text-secondary hover:text-text-primary transition-colors">
                 <Plus size={14} />
               </button>
             </div>
             <div className="space-y-0.5">
               {isLoadingTeam ? (
-                <div className="px-3 py-2 text-[10px] text-slate-400 animate-pulse">Loading team...</div>
+                <div className="px-3 py-2 text-[10px] text-text-secondary animate-pulse font-bold">LOADING...</div>
               ) : teamMembers.filter(m => m.uid !== user?.uid).length === 0 ? (
-                <div className="px-3 py-2 text-[10px] text-slate-400">No other users yet</div>
+                <div className="px-3 py-2 text-[10px] text-text-secondary font-medium">No other users yet</div>
               ) : teamMembers.filter(m => m.uid !== user?.uid).map((member) => (
                 <button
                   key={member.uid}
@@ -260,25 +260,24 @@ export default function ChatPage() {
                     setActiveChannelId('');
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                    "w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all group",
                     activeDMId === member.uid 
-                      ? "bg-blue-50 text-blue-600 shadow-sm border border-blue-100/50" 
-                      : "text-slate-600 hover:bg-slate-100"
+                      ? "bg-primary text-white shadow-sm shadow-primary/20" 
+                      : "text-text-secondary hover:bg-white hover:text-text-primary"
                   )}
                 >
-                  <div className="relative">
-                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200">
+                  <div className="relative shrink-0">
+                    <div className="w-5 h-5 rounded-md bg-bg-light flex items-center justify-center text-[9px] font-bold text-text-primary border border-border group-hover:bg-white transition-all">
                       {(member.displayName || member.name || '?').charAt(0)}
                     </div>
                     <div className={cn(
                       "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white",
-                      member.status === 'online' ? "bg-emerald-500" : member.status === 'away' ? "bg-amber-500" : "bg-slate-300"
+                      member.status === 'online' ? "bg-success" : member.status === 'away' ? "bg-warning" : "bg-text-secondary/50"
                     )} />
                   </div>
                   <span className="truncate">{member.displayName || member.name}</span>
                 </button>
               ))}
-
             </div>
           </div>
         </div>
@@ -287,51 +286,51 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-white">
         {/* Chat Header */}
-        <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white shadow-sm z-10">
+        <div className="px-6 py-3 border-b border-border flex items-center justify-between bg-white z-10">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-400">
+             <div className="w-10 h-10 rounded-md bg-bg-light flex items-center justify-center border border-border text-text-secondary font-bold text-[14px]">
                 {activeDMId ? (
-                   <div className="font-bold text-slate-600 text-sm">{(roomInfo?.title || '?').charAt(0)}</div>
+                   (roomInfo?.title || '?').charAt(0)
                 ) : (
                    <Hash size={20} />
                 )}
              </div>
              <div className="text-left">
-                <div className="flex items-center gap-2 font-bold text-slate-900 leading-tight">
+                <div className="flex items-center gap-2 font-bold text-text-primary text-[15px] leading-tight">
                   {roomInfo.title}
                   {roomInfo.status && (
                     <div className={cn(
-                      "w-1.5 h-1.5 rounded-full",
-                      roomInfo.status === 'online' ? "bg-emerald-500" : roomInfo.status === 'away' ? "bg-amber-500" : "bg-slate-300"
+                      "w-2 h-2 rounded-full",
+                      roomInfo.status === 'online' ? "bg-success" : roomInfo.status === 'away' ? "bg-warning" : "bg-text-secondary/50"
                     )} />
                   )}
                 </div>
-                <div className="text-[10px] font-medium text-slate-400 truncate max-w-[300px]">{roomInfo.description}</div>
+                <div className="text-[11px] font-medium text-text-secondary truncate max-w-[300px] mt-0.5">{roomInfo.description}</div>
              </div>
           </div>
           <div className="flex items-center gap-1">
-             <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+             <button className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all">
                 <Phone size={18} />
              </button>
-             <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+             <button className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all">
                 <Video size={18} />
              </button>
-             <div className="w-px h-4 bg-slate-100 mx-1" />
-             <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+             <div className="w-px h-4 bg-border mx-2" />
+             <button className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all">
                 <Info size={18} />
              </button>
           </div>
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/20">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 bg-bg-light/10 custom-scrollbar">
           {currentMessages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400">
-               <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 mb-4 opacity-50">
-                  <Send size={32} className="rotate-45 -translate-x-1" />
+            <div className="h-full flex flex-col items-center justify-center text-text-secondary opacity-60">
+               <div className="w-20 h-20 rounded-md bg-bg-light flex items-center justify-center border border-border mb-4">
+                  <Send size={40} className="text-primary/30 -translate-x-1 translate-y-1" />
                </div>
-               <p className="text-sm font-medium">This is the start of your conversation.</p>
-               <p className="text-xs mt-1">Send a message to get things started!</p>
+               <p className="text-[14px] font-bold text-text-primary">New Conversation</p>
+               <p className="text-[12px] mt-1 font-medium">Send a message to get things started!</p>
             </div>
           ) : (
             currentMessages.map((msg, i) => {
@@ -341,38 +340,38 @@ export default function ChatPage() {
 
               return (
                 <div key={msg.id} className={cn(
-                  "flex gap-3",
+                  "flex gap-4",
                   isOwn ? "flex-row-reverse" : "flex-row",
-                  !showHeader && "mt-1"
+                  !showHeader && "-mt-6"
                 )}>
                   {showHeader ? (
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 border border-slate-200">
+                    <div className="w-9 h-9 rounded-md bg-bg-light flex items-center justify-center text-[10px] font-bold text-text-primary shrink-0 border border-border font-mono">
                       {msg.senderName?.charAt(0) || '?'}
                     </div>
                   ) : (
-                    <div className="w-8 shrink-0" />
+                    <div className="w-9 shrink-0" />
                   )}
                   <div className={cn(
                     "flex flex-col max-w-[70%]",
                     isOwn ? "items-end" : "items-start"
                   )}>
                     {showHeader && (
-                      <div className="flex items-center gap-2 mb-1 px-1">
-                        <span className="text-xs font-bold text-slate-900">{msg.senderName}</span>
-                        <span className="text-[10px] text-slate-400">{formatMessageTime(msg.timestamp)}</span>
+                      <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                        <span className="text-[12px] font-bold text-text-primary">{msg.senderName}</span>
+                        <span className="text-[10px] text-text-secondary font-bold uppercase">{formatMessageTime(msg.timestamp)}</span>
                       </div>
                     )}
                     <div className={cn(
-                      "px-4 py-2 text-sm shadow-sm transition-all",
+                      "px-4 py-3 text-[13.5px] font-medium shadow-sm transition-all relative break-words",
                       isOwn 
-                        ? "bg-slate-900 text-white rounded-2xl rounded-tr-none" 
-                        : "bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-tl-none",
-                      !showHeader && (isOwn ? "rounded-tr-none" : "rounded-tl-none")
+                        ? "bg-primary text-white rounded-md rounded-tr-none shadow-primary/10" 
+                        : "bg-white text-text-primary border border-border rounded-md rounded-tl-none shadow-black/[0.02]",
+                      !showHeader && (isOwn ? "rounded-tr-md" : "rounded-tl-md")
                     )}>
                       {msg.text}
                       {msg.attachments?.map((att, idx) => (
-                        <div key={idx} className="mt-2 rounded-lg overflow-hidden border border-slate-100/20">
-                          {att.type === 'image' && <img src={att.url} alt="Attachment" className="max-w-full h-auto" />}
+                        <div key={idx} className="mt-3 rounded-md overflow-hidden border border-border/20 shadow-sm first:mt-2">
+                          {att.type === 'image' && <img src={att.url} alt="Attachment" className="max-w-full h-auto block" />}
                         </div>
                       ))}
                     </div>
@@ -384,10 +383,10 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="px-6 py-4 bg-white border-t border-slate-100">
-          <form onSubmit={handleSendMessage} className="relative">
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1 focus-within:ring-4 focus-within:ring-blue-500/5 focus-within:border-blue-500 transition-all">
-               <button type="button" className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
+        <div className="px-6 py-6 bg-white border-t border-border">
+          <form onSubmit={handleSendMessage} className="relative max-w-4xl mx-auto">
+            <div className="flex items-center gap-2 bg-bg-light/30 border border-border rounded-md p-1.5 focus-within:ring-4 focus-within:ring-primary/5 focus-within:border-primary/30 transition-all">
+               <button type="button" className="p-2.5 text-text-secondary hover:text-primary hover:bg-white rounded-md transition-all">
                  <Paperclip size={20} />
                </button>
                <input 
@@ -395,27 +394,27 @@ export default function ChatPage() {
                  value={newMessage}
                  onChange={(e) => setNewMessage(e.target.value)}
                  placeholder={`Message ${activeDMId ? roomInfo.title : '#' + roomInfo.title}...`}
-                 className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 text-slate-900"
+                 className="flex-1 bg-transparent border-none focus:ring-0 text-[13.5px] py-2 text-text-primary font-medium outline-none placeholder:text-text-secondary/50"
                />
-               <button type="button" className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
+               <button type="button" className="p-2.5 text-text-secondary hover:text-primary hover:bg-white rounded-md transition-all">
                  <Smile size={20} />
                </button>
                <button 
                  type="submit"
                  disabled={!newMessage.trim()}
                  className={cn(
-                   "p-2 rounded-xl transition-all",
+                   "p-2.5 rounded-md transition-all",
                    newMessage.trim() 
-                    ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10 hover:scale-105 active:scale-95" 
-                    : "bg-slate-100 text-slate-300 pointer-events-none"
+                    ? "bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95" 
+                    : "bg-bg-light text-text-secondary/30 pointer-events-none"
                  )}
                >
                  <Send size={20} />
                </button>
             </div>
-            <div className="flex items-center gap-4 mt-2 px-2 text-[10px] text-slate-400 font-medium">
-               <div className="flex items-center gap-1.5"><Circle size={8} className="fill-emerald-500 text-emerald-500" /> 5 team members online</div>
-               <div className="flex items-center gap-1.5 underline cursor-pointer hover:text-slate-600">Markdown syntax supported</div>
+            <div className="flex items-center gap-4 mt-3 px-1 text-[11px] text-text-secondary font-bold uppercase tracking-wider">
+               <div className="flex items-center gap-1.5"><Circle size={8} className="fill-success text-success animate-pulse" /> 5 team members online</div>
+               <div className="flex items-center gap-1.5 underline cursor-pointer hover:text-text-primary transition-colors decoration-primary/30 underline-offset-2">Markdown supported</div>
             </div>
           </form>
         </div>

@@ -70,14 +70,14 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm"
         >
           <Plus size={18} />
           Create Note
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 bg-white rounded-xl border border-slate-200 shadow-sm flex overflow-hidden">
+      <div className="flex-1 min-h-0 bg-white rounded-md border border-slate-200 shadow-sm flex overflow-hidden">
         {/* Sidebar */}
         <div className="w-80 border-r border-slate-100 flex flex-col bg-slate-50/30">
           <div className="p-4 border-b border-slate-100">
@@ -88,7 +88,7 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
                 placeholder="Search notes..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
               <button
                 key={note.id}
                 onClick={() => setSelectedNote(note)}
-                className={`w-full text-left p-3 rounded-lg transition-colors group relative ${
+                className={`w-full text-left p-3 rounded-md transition-colors group relative ${
                   selectedNote?.id === note.id ? 'bg-white shadow-sm border border-slate-200' : 'hover:bg-slate-100 border border-transparent'
                 }`}
               >
@@ -120,16 +120,16 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
                   <h3 className="text-xl font-bold text-slate-900 text-left">{selectedNote.title}</h3>
                   <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                     <span className="flex items-center gap-1"><Calendar size={14} /> Created {selectedNote.createdAt}</span>
-                    <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full text-slate-600 font-bold uppercase text-[10px] tracking-widest"><Tag size={10} /> {selectedNote.category}</span>
+                    <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-md text-slate-600 font-bold uppercase text-[10px] tracking-widest"><Tag size={10} /> {selectedNote.category}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                   <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                   <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
                      <Edit size={18} />
                    </button>
                    <button 
                      onClick={() => handleDeleteNote(selectedNote.id)}
-                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                    >
                      <Trash2 size={18} />
                    </button>
@@ -154,8 +154,8 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
         title="Create New Note"
         footer={
           <>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-            <button onClick={handleAddNote} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg">Create Note</button>
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md">Cancel</button>
+            <button onClick={handleAddNote} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md">Create Note</button>
           </>
         }
       >
@@ -180,7 +180,7 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
               rows={8}
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
               placeholder="# Markdown title..."
               required
             />

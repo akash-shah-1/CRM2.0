@@ -135,25 +135,30 @@ export default function ClientsPage() {
       header: 'Client Name',
       key: 'name',
       render: (client: any) => (
-        <div>
-          <div className="font-medium text-slate-900">{client.name}</div>
-          <div className="text-xs text-slate-400">{client.email}</div>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+            {client.name.charAt(0)}
+          </div>
+          <div>
+            <div className="font-semibold text-text-primary">{client.name}</div>
+            <div className="text-[11px] text-text-secondary">{client.email}</div>
+          </div>
         </div>
       ),
     },
     {
       header: 'Company',
       key: 'company',
-      className: 'text-sm text-slate-600',
+      className: 'text-[13px] font-medium text-text-secondary',
     },
     {
       header: 'Status',
       key: 'status',
       render: (client: any) => (
-        <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-          client.status === 'active' ? 'bg-green-50 text-green-600' :
-          client.status === 'lead' ? 'bg-blue-50 text-blue-600' :
-          'bg-slate-50 text-slate-500'
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider border ${
+          client.status === 'active' ? 'bg-success/10 text-success border-success/20' :
+          client.status === 'lead' ? 'bg-primary/10 text-primary border-primary/20' :
+          'bg-slate-100 text-slate-500 border-slate-200'
         }`}>
           {client.status}
         </span>
@@ -165,7 +170,7 @@ export default function ClientsPage() {
       render: (client: any) => (
         <div className="flex items-center gap-2">
            <button 
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors" 
+            className="w-7 h-7 flex items-center justify-center text-primary/70 hover:text-primary hover:bg-primary/5 rounded-md transition-all" 
             title="Email"
             onClick={() => {
               setEmailRecipient({ email: client.email, name: client.name });
@@ -174,7 +179,7 @@ export default function ClientsPage() {
            >
              <Mail size={14} />
            </button>
-           <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Call">
+           <button className="w-7 h-7 flex items-center justify-center text-success/70 hover:text-success hover:bg-success/5 rounded-md transition-all" title="Call">
              <Phone size={14} />
            </button>
         </div>
@@ -201,59 +206,63 @@ export default function ClientsPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Clients</h2>
-            <p className="text-slate-500 text-sm text-left">Manage your enterprise client relationships.</p>
+          <div className="hidden sm:block">
+            <h2 className="text-xl font-bold text-text-primary tracking-tight">Active Clients</h2>
+            <p className="text-text-secondary text-[13px]">Track and manage your enterprise client database.</p>
           </div>
           <button 
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm transition-all active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover transition-all text-[13px] font-bold shadow-sm active:scale-95"
             onClick={() => handleOpenModal()}
           >
-            <Plus size={18} />
-            Add Client
+            <Plus size={16} />
+            + New Client
           </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center gap-4 bg-slate-50/30">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <div className="bg-white rounded-md border border-border shadow-sm overflow-hidden">
+          <div className="p-4 flex flex-col sm:flex-row items-center gap-4 bg-white">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
               <input 
                 type="text" 
-                placeholder="Search clients..." 
+                placeholder="Search by name, company, email..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                className="w-full pl-10 pr-4 py-2 bg-bg-light border border-border rounded-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               />
             </div>
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 focus:outline-none text-slate-600 shadow-sm"
-            >
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Lead</option>
-              <option>Inactive</option>
-            </select>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-40">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-bg-light border border-border rounded-md text-[13px] focus:outline-none focus:border-primary transition-all text-text-secondary appearance-none outline-none"
+                >
+                  <option>All Status</option>
+                  <option>Active</option>
+                  <option>Lead</option>
+                  <option>Inactive</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {isLoading ? (
-            <div className="p-4 space-y-4">
+            <div className="p-10 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center justify-between gap-4">
+                <div key={i} className="flex items-center justify-between gap-4 animate-pulse">
                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-10 h-10 rounded-full" />
-                      <div className="space-y-1">
-                         <Skeleton className="h-4 w-40" />
-                         <Skeleton className="h-2 w-20" />
+                      <div className="w-10 h-10 rounded-md bg-bg-light" />
+                      <div className="space-y-2">
+                         <div className="h-3 bg-bg-light rounded-md w-32" />
+                         <div className="h-2 bg-bg-light rounded-md w-20" />
                       </div>
                    </div>
-                   <Skeleton className="h-4 w-24" />
-                   <Skeleton className="h-4 w-32" />
-                   <Skeleton className="w-8 h-8 rounded-full" />
+                   <div className="h-3 bg-bg-light rounded-md w-24" />
+                   <div className="h-6 bg-bg-light rounded-md w-20" />
                 </div>
               ))}
             </div>
@@ -262,13 +271,17 @@ export default function ClientsPage() {
               <DataTable 
                 columns={columns}
                 data={filteredData}
+                showCheckboxes={true}
               />
 
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
-                <div className="text-xs text-slate-500">Showing {filteredData.length} clients</div>
+              <div className="p-4 px-6 border-t border-border flex items-center justify-between bg-white">
+                <div className="text-[13px] text-text-secondary">Showing <span className="font-bold text-text-primary">{filteredData.length}</span> of <span className="font-bold text-text-primary">{accessibleClients.length}</span> results</div>
                 <div className="flex items-center gap-2">
-                    <button disabled className="px-3 py-1 text-xs font-medium text-slate-300 border border-slate-100 rounded bg-white">Prev</button>
-                    <button className="px-3 py-1 text-xs font-medium text-slate-600 border border-slate-100 rounded hover:bg-slate-50 bg-white">Next</button>
+                    <button disabled className="px-3 py-1.5 text-[12px] font-bold text-slate-300 border border-border rounded-md opacity-50">Previous</button>
+                    <div className="flex items-center">
+                       <button className="w-8 h-8 flex items-center justify-center bg-primary text-white text-[12px] font-bold rounded-md shadow-sm">1</button>
+                    </div>
+                    <button className="px-3 py-1.5 text-[12px] font-bold text-text-primary border border-border rounded-md hover:bg-bg-light transition-all">Next</button>
                 </div>
               </div>
             </>
@@ -280,12 +293,12 @@ export default function ClientsPage() {
         onClose={() => setIsModalOpen(false)} 
         title={editingClient ? 'Edit Client' : 'Add New Client'}
         footer={
-          <>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-            <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors">
-              {editingClient ? 'Save Changes' : 'Create Client'}
+          <div className="flex items-center justify-end gap-3 w-full">
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[13px] font-bold text-text-secondary hover:bg-bg-light rounded-md transition-all">Cancel</button>
+            <button onClick={handleSubmit} className="px-5 py-2 text-[13px] font-bold text-white bg-primary hover:bg-primary-hover rounded-md shadow-sm shadow-primary/20 transition-all active:scale-95">
+              {editingClient ? 'Update Client' : 'Create Client'}
             </button>
-          </>
+          </div>
         }
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -314,7 +327,7 @@ export default function ClientsPage() {
           <Select 
             label="Status" 
             value={formData.status} 
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'lead' | 'inactive' })}
             options={[
               { label: 'Lead', value: 'lead' },
               { label: 'Active', value: 'active' },

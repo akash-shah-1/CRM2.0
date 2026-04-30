@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,8 +114,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   };
 
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await setDoc(userDocRef, { ...updates, updatedAt: serverTimestamp() }, { merge: true });
+      setUser(prev => prev ? { ...prev, ...updates } : null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

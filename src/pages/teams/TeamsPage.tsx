@@ -239,7 +239,7 @@ export default function TeamsPage() {
       key: 'displayName',
       render: (member: UserProfile) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 overflow-hidden">
+          <div className="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs overflow-hidden">
             {member.avatarUrl ? (
               <img src={member.avatarUrl} alt={member.displayName} className="w-full h-full object-cover" />
             ) : (
@@ -247,8 +247,8 @@ export default function TeamsPage() {
             )}
           </div>
           <div>
-            <div className="font-medium text-slate-900">{member.displayName}</div>
-            <div className="text-xs text-slate-400">{member.email}</div>
+            <div className="font-semibold text-text-primary text-[13.5px]">{member.displayName}</div>
+            <div className="text-[11px] text-text-secondary">{member.email}</div>
           </div>
         </div>
       ),
@@ -257,38 +257,34 @@ export default function TeamsPage() {
       header: 'Role',
       key: 'role',
       render: (member: UserProfile) => (
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg w-fit">
-          {member.role === UserRole.ADMIN ? (
-            <ShieldCheck size={12} className="text-blue-600" />
-          ) : member.role === UserRole.MANAGER ? (
-            <ShieldCheck size={12} className="text-emerald-600" />
-          ) : (
-            <Shield size={12} className="text-slate-400" />
-          )}
-          <span className="text-[10px] font-bold uppercase text-slate-700 tracking-wider">
-            {member.role}
-          </span>
-        </div>
+        <span className={cn(
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border",
+          member.role === UserRole.ADMIN ? "bg-primary/10 text-primary border-primary/20" :
+          member.role === UserRole.MANAGER ? "bg-success/10 text-success border-success/20" :
+          "bg-bg-light text-text-secondary border-border"
+        )}>
+          {member.role}
+        </span>
       ),
     },
     {
       header: 'Status',
       key: 'status',
       render: (member: UserProfile) => (
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            member.status === 'disabled' ? "bg-rose-500" : "bg-emerald-500"
-          )} />
-          <span className="text-xs text-slate-600 capitalize">{member.status || 'active'}</span>
-        </div>
+        <span className={cn(
+          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border",
+          member.status === 'disabled' ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
+        )}>
+          <div className={cn("w-1.5 h-1.5 rounded-full", member.status === 'disabled' ? "bg-danger" : "bg-success")} />
+          {member.status || 'active'}
+        </span>
       ),
     },
     {
       header: 'Joined',
       key: 'createdAt',
       render: (member: any) => (
-        <span className="text-xs text-slate-500">
+        <span className="text-[12px] font-medium text-text-secondary">
           {member.createdAt?.seconds ? new Date(member.createdAt.seconds * 1000).toLocaleDateString() : 'Just now'}
         </span>
       )
@@ -299,16 +295,18 @@ export default function TeamsPage() {
       align: 'right' as const,
       render: (member: UserProfile) => (
         <div className="flex items-center justify-end gap-2">
-          <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent">
+          <button 
+            onClick={() => {
+              setEmailRecipient({ email: member.email, name: member.displayName || member.email });
+              setIsEmailModalOpen(true);
+            }}
+            className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-primary hover:bg-primary/5 rounded transition-all"
+          >
             <Mail size={16} />
           </button>
           {(isAdmin || currentUser?.uid === member.uid) && (
             <ActionMenu 
               items={[
-                { label: 'Send Email', onClick: () => {
-                  setEmailRecipient({ email: member.email, name: member.displayName || member.email });
-                  setIsEmailModalOpen(true);
-                }, icon: Mail },
                 { label: 'Edit Member', onClick: () => handleOpenModal(member), icon: Edit },
                 ...(isAdmin && currentUser?.uid !== member.uid ? [
                   member.status === 'disabled' 
@@ -325,55 +323,54 @@ export default function TeamsPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Team Members</h2>
-            <p className="text-slate-500 text-sm text-left">Manage roles and permissions for your organization.</p>
+            <h2 className="text-xl font-bold text-text-primary tracking-tight">Team Management</h2>
+            <p className="text-text-secondary text-[13px]">Manage roles and system permissions for your organization.</p>
           </div>
           {isAdmin ? (
             <button 
-              className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm flex items-center gap-2 transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-all text-[13px] font-bold shadow-sm active:scale-95"
               onClick={() => handleOpenModal()}
             >
-              <Plus size={18} />
-              Create User Profile
+              <Plus size={16} />
+              + Add Member
             </button>
           ) : (
-            <div className="bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-              Contact an admin to invite new members or change roles.
+            <div className="bg-warning/10 border border-warning/20 text-warning px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider">
+              Admin Access Required
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
+          <div className="p-4 bg-white">
+            <div className="relative max-w-md w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
               <input 
                 type="text" 
-                placeholder="Search team members..." 
+                placeholder="Search by name or email..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                className="w-full pl-10 pr-4 py-2 bg-bg-light border border-border rounded text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               />
             </div>
           </div>
 
           {loading ? (
-            <div className="p-4 space-y-4">
+            <div className="p-10 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center justify-between gap-4">
+                <div key={i} className="flex items-center justify-between gap-4 animate-pulse">
                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-8 h-8 rounded-full" />
-                      <div className="space-y-1">
-                         <Skeleton className="h-4 w-40" />
-                         <Skeleton className="h-2 w-20" />
+                      <div className="w-8 h-8 rounded bg-bg-light" />
+                      <div className="space-y-2">
+                         <div className="h-3 bg-bg-light rounded w-40" />
+                         <div className="h-2 bg-bg-light rounded w-20" />
                       </div>
                    </div>
-                   <Skeleton className="h-4 w-24" />
-                   <Skeleton className="h-4 w-32" />
-                   <Skeleton className="w-8 h-8 rounded-full" />
+                   <div className="h-4 bg-bg-light rounded w-20" />
+                   <div className="h-4 bg-bg-light rounded w-24" />
                 </div>
               ))}
             </div>
@@ -381,6 +378,7 @@ export default function TeamsPage() {
             <DataTable 
               columns={columns}
               data={filteredData}
+              showCheckboxes={true}
             />
           )}
         </div>
@@ -388,27 +386,27 @@ export default function TeamsPage() {
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        title={editingMember ? 'Edit Member Details' : 'Create User Profile'}
+        title={editingMember ? 'Edit Member' : 'Add Team Member'}
         size="xl"
         footer={
-          <>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+          <div className="flex items-center justify-end gap-3 w-full">
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[13px] font-bold text-text-secondary hover:bg-bg-light rounded transition-all">Cancel</button>
             <button 
               form="user-form"
               disabled={isSubmitting} 
               onClick={handleSubmit} 
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="px-5 py-2 text-[13px] font-bold text-white bg-primary hover:bg-primary-hover rounded shadow-sm shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               {editingMember ? 'Save Changes' : 'Create Account'}
             </button>
-          </>
+          </div>
         }
       >
         <form className="space-y-6" id="user-form" onSubmit={handleSubmit}>
           {!editingMember && (
-            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-[11px] text-blue-700 mb-2">
-              <strong>Note:</strong> This will create both a login account and a user profile. The user can log in immediately with the email and password provided.
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded text-[12px] text-primary">
+              <span className="font-bold">Account Setup:</span> This creates both a directory profile and authentication credentials.
             </div>
           )}
           
@@ -459,43 +457,42 @@ export default function TeamsPage() {
               </div>
               
               <div className="space-y-3">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Module Permissions</label>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Module Permissions</label>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-bg-light/50 border border-border rounded-lg">
                   {MODULES.map((module) => (
-                    <label key={module.id} className="flex items-center gap-2 cursor-pointer group hover:bg-white p-1 rounded-lg transition-colors">
+                    <label key={module.id} className="flex items-center gap-2 cursor-pointer group p-1.5 rounded transition-all">
                       <input 
                         type="checkbox"
                         checked={formData.permissions.includes(module.id)}
                         onChange={() => togglePermission(module.id)}
-                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                       />
-                      <span className="text-[11px] font-bold text-slate-500 group-hover:text-slate-900 transition-colors uppercase tracking-tight">{module.label}</span>
+                      <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">{module.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Project Access</label>
-                <div className="p-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto pr-1">
+                <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Project Scoping</label>
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-1 gap-0.5 max-h-40 overflow-y-auto custom-scrollbar">
                     {PROJECTS_DATA.map((project) => (
-                      <label key={project.id} className="flex items-center justify-between cursor-pointer group hover:bg-white p-2.5 rounded-lg transition-all border border-transparent hover:border-slate-100 hover:shadow-sm">
+                      <label key={project.id} className="flex items-center justify-between cursor-pointer group hover:bg-bg-light/50 p-2.5 px-4 transition-all">
                         <div className="flex items-center gap-3">
                           <input 
                             type="checkbox"
                             checked={formData.projectAccess.includes(project.id)}
                             onChange={() => toggleProjectAccess(project.id)}
-                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                           />
-                          <span className="text-xs text-slate-700 group-hover:text-slate-900 transition-colors font-bold uppercase tracking-tight">{project.title}</span>
+                          <span className="text-[12px] font-semibold text-text-primary">{project.title}</span>
                         </div>
-                        <span className="text-[9px] font-black text-slate-400 group-hover:text-slate-500 uppercase tracking-widest">{project.client}</span>
+                        <span className="text-[10px] font-bold text-text-secondary uppercase">{project.client}</span>
                       </label>
                     ))}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-400 italic font-medium px-1">Managers and Employees will only see data related to these specific projects.</p>
               </div>
             </div>
           )}

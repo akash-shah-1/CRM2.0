@@ -1,14 +1,19 @@
 import { useMemo, useState, useEffect } from 'react';
-import { DASHBOARD_STATS } from '../../dummy-data/dashboard';
-import { PROJECTS_DATA } from '../../dummy-data/projects';
-import { CLIENTS_DATA } from '../../dummy-data/clients';
 import { useAuth } from '../../store/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Users, Briefcase, TrendingUp, Clock, Plus, FolderOpen, Calendar, Shield, Search, Mail } from 'lucide-react';
+import { cn } from '../../utils/cn';
+import { Users, Briefcase, TrendingUp, Clock, Plus, FolderOpen, Search, Mail, MoreVertical, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { EmailModal } from '../../components/common/EmailModal';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
 import { useRecentActivity } from '../../hooks/useRecentActivity';
 import { PageTransition } from '../../components/common/PageTransition';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
+} from 'recharts';
+import { REVENUE_DATA, SALES_FORECAST, DEAL_OVERVIEW } from '../../dummy-data/charts';
+
+const COLORS = ['#7c5cff', '#0ab39c', '#f7b84b', '#f06548'];
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -33,121 +38,202 @@ export default function DashboardPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Overview</h2>
-          <p className="text-slate-500 text-sm">Welcome back, {user?.displayName}.</p>
-        </div>
-        <div className="flex items-center gap-2">
-           <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-slate-200">
-              <Shield size={12} />
-              {user?.role} Access
-           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.id} className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-slate-50 rounded-lg text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                  <Icon size={20} />
-                </div>
-                {stat.trend && (
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter ${
-                    stat.status === 'up' ? 'bg-green-50 text-green-600' : 
-                    stat.status === 'down' ? 'bg-red-50 text-red-600' : 
-                    'bg-slate-100 text-slate-500'
-                  }`}>
-                    {stat.trend}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</div>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">{stat.value}</div>
-            </div>
-          );
-        })}
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-            <h3 className="font-bold text-slate-900 text-sm uppercase tracking-widest">Recent Activity</h3>
-            <button className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-tighter">View All logs</button>
-          </div>
-          <div className="divide-y divide-slate-100 overflow-y-auto max-h-[400px]">
-            {loadingActivities ? (
-               <div className="p-10 text-center animate-pulse space-y-4">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="flex gap-4">
-                       <div className="w-10 h-10 bg-slate-100 rounded-xl" />
-                       <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-slate-100 rounded w-3/4" />
-                          <div className="h-2 bg-slate-100 rounded w-1/4" />
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            ) : realActivities.length > 0 ? realActivities.map((activity) => (
-              <div key={activity.id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors group">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 group-hover:border-blue-100 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
-                  <Clock size={16} />
+      <div className="space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            const isUp = stat.status === 'up';
+            return (
+              <div key={stat.id} className="p-5 bg-white rounded-md border border-border shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                <div className={cn(
+                  "w-12 h-12 rounded-md flex items-center justify-center flex-shrink-0 transition-colors",
+                  stat.status === 'up' ? "bg-success/10 text-success" : 
+                  stat.status === 'down' ? "bg-danger/10 text-danger" : 
+                  "bg-primary/10 text-primary"
+                )}>
+                  <Icon size={22} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-600">
-                    <span className="font-bold text-slate-900">{activity.userName}</span> {activity.action} <span className="font-bold text-slate-800 border-b border-slate-200">{activity.target}</span>
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">{formatTime(activity.timestamp)}</p>
+                  <p className="text-[13px] font-medium text-text-secondary uppercase tracking-wider mb-1">{stat.label}</p>
+                  <h3 className="text-xl font-bold text-text-primary tracking-tight">{stat.value}</h3>
+                  {stat.trend && (
+                    <div className={cn(
+                      "absolute top-5 right-5 text-[11px] font-bold flex items-center gap-0.5",
+                      isUp ? "text-success" : "text-danger"
+                    )}>
+                      {isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                      {stat.trend}
+                    </div>
+                  )}
                 </div>
               </div>
-            )) : (
-              <div className="p-10 text-center text-slate-400 text-sm font-medium">No recent activity found.</div>
-            )}
-          </div>
+            );
+          })}
         </div>
 
-        <div className="flex flex-col gap-6">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <h3 className="font-bold text-slate-900 text-sm uppercase tracking-widest mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              {[
-                { label: 'Add New Client', icon: Plus, to: '/clients', adminOnly: true },
-                { label: 'Create Project', icon: FolderOpen, to: '/projects', adminOnly: true },
-                { label: 'Send Correspondence', icon: Mail, onClick: () => setIsEmailModalOpen(true) },
-                { label: 'Project Explorer', icon: Search, to: '/explorer' },
-                { label: 'Upload Document', icon: Plus, to: '/documents' },
-              ].filter(action => !action.adminOnly || isAdmin).map((action) => (
-                <button 
-                  key={action.label}
-                  onClick={() => action.to ? navigate(action.to) : action.onClick?.()}
-                  className="w-full text-left px-4 py-3 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100 rounded-xl transition-all border border-slate-100 flex items-center justify-between group"
-                >
-                  {action.label}
-                  <action.icon size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" />
-                </button>
-              ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Revenue vs Expenses Chart */}
+          <div className="lg:col-span-2 bg-white rounded-md border border-border shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-text-primary text-[15px]">Revenue vs Expenses</h3>
+              <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                    <span className="text-[11px] text-text-secondary font-medium">Revenue</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    <span className="text-[11px] text-text-secondary font-medium">Expenses</span>
+                 </div>
+                 <button className="p-1 hover:bg-slate-50 rounded text-slate-400"><MoreVertical size={16} /></button>
+              </div>
+            </div>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={REVENUE_DATA}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#7c5cff" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#7c5cff" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#878a99', fontSize: 11}} 
+                    dy={10} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#878a99', fontSize: 11}} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#7c5cff" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                  <Area type="monotone" dataKey="expenses" stroke="#0ab39c" strokeWidth={3} fill="transparent" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          <EmailModal 
-            isOpen={isEmailModalOpen}
-            onClose={() => setIsEmailModalOpen(false)}
-            type="team"
-          />
-
-          <div className="bg-slate-900 rounded-xl p-6 text-white overflow-hidden relative group">
-             <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-400/30 transition-colors" />
-             <h4 className="font-bold text-lg mb-2 relative z-10">Resource Center</h4>
-             <p className="text-slate-400 text-xs mb-4 leading-relaxed relative z-10">Access documentation, training materials, and brand guidelines for your projects.</p>
-             <button className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors relative z-10">Open Explorer</button>
+          {/* Deal Overview (Donut) */}
+          <div className="bg-white rounded-md border border-border shadow-sm p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+               <h3 className="font-bold text-text-primary text-[15px]">Deal Overview</h3>
+               <button className="text-[11px] font-bold text-primary hover:underline uppercase tracking-tighter">Report</button>
+            </div>
+            <div className="h-[240px] flex-shrink-0">
+               <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={DEAL_OVERVIEW}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {DEAL_OVERVIEW.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+               </ResponsiveContainer>
+            </div>
+            <div className="mt-auto space-y-3">
+               {DEAL_OVERVIEW.map((item) => (
+                 <div key={item.name} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                    <div className="flex items-center gap-2">
+                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                       <span className="text-[13px] font-medium text-text-secondary">{item.name}</span>
+                    </div>
+                    <span className="text-[13px] font-bold text-text-primary">{item.value} Deals</span>
+                 </div>
+               ))}
+            </div>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Sales Forecast */}
+          <div className="bg-white rounded-md border border-border shadow-sm p-6">
+            <h3 className="font-bold text-text-primary text-[15px] mb-6">Sales Forecast</h3>
+            <div className="h-[250px]">
+               <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={SALES_FORECAST}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#878a99', fontSize: 11}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#878a99', fontSize: 11}} />
+                    <Tooltip cursor={{fill: '#f3f6f9'}} />
+                    <Bar dataKey="target" fill="#7c5cff" radius={[4, 4, 0, 0]} barSize={20} />
+                    <Bar dataKey="actual" fill="#e9ebf0" radius={[4, 4, 0, 0]} barSize={20} />
+                  </BarChart>
+               </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="bg-white rounded-md border border-border shadow-sm overflow-hidden flex flex-col">
+            <div className="p-4 px-6 border-b border-border flex items-center justify-between bg-table-header/50">
+              <h3 className="font-bold text-text-primary text-[15px]">Recent Activity</h3>
+              <button className="text-[11px] font-bold text-primary hover:underline uppercase tracking-tighter">View All</button>
+            </div>
+            <div className="divide-y divide-slate-100 overflow-y-auto max-h-[250px] custom-scrollbar">
+              {loadingActivities ? (
+                 <div className="p-6 text-center text-slate-400 text-xs">Loading...</div>
+              ) : realActivities.length > 0 ? realActivities.slice(0, 10).map((activity) => (
+                <div key={activity.id} className="p-4 px-6 flex items-start gap-3 hover:bg-slate-50 transition-colors group">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition-all">
+                    <Clock size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-text-primary leading-snug">
+                      <span className="font-bold">{activity.userName}</span> {activity.action} <span className="font-semibold text-primary">{activity.target}</span>
+                    </p>
+                    <p className="text-[11px] text-text-secondary mt-1">{formatTime(activity.timestamp)}</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="p-10 text-center text-slate-400 text-sm font-medium">No recent activity found.</div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Quick Actions Footer */}
+        <div className="bg-white rounded-md border border-border shadow-sm p-4 flex flex-wrap items-center gap-4">
+           <span className="text-[13px] font-bold text-text-secondary uppercase tracking-widest mr-2">Quick Actions:</span>
+           {[
+             { label: 'Add Client', icon: Plus, to: '/clients', adminOnly: true },
+             { label: 'New Project', icon: FolderOpen, to: '/projects', adminOnly: true },
+             { label: 'Send Email', icon: Mail, onClick: () => setIsEmailModalOpen(true) },
+             { label: 'File Search', icon: Search, to: '/explorer' },
+           ].filter(action => !action.adminOnly || isAdmin).map((action) => (
+             <button 
+               key={action.label}
+               onClick={() => action.to ? navigate(action.to) : action.onClick?.()}
+               className="flex items-center gap-2 px-4 py-2 text-[12px] font-bold text-text-primary bg-bg-light hover:bg-primary hover:text-white rounded-md transition-all border border-transparent shadow-sm"
+             >
+               <action.icon size={14} />
+               {action.label}
+             </button>
+           ))}
+        </div>
+
+        <EmailModal 
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          type="team"
+        />
       </div>
     </PageTransition>
   );
 }
+
