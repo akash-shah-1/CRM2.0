@@ -10,9 +10,30 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const getRedirectPath = (userProfile: any) => {
+    if (!userProfile) return '/login';
+    if (userProfile.defaultPage) return userProfile.defaultPage;
+    if (userProfile.role === 'admin') return '/dashboard';
+    
+    const modules = [
+      { id: 'dashboard', path: '/dashboard' },
+      { id: 'clients', path: '/clients' },
+      { id: 'projects', path: '/projects' },
+      { id: 'chat', path: '/chat' },
+      { id: 'documents', path: '/documents' },
+      { id: 'explorer', path: '/explorer' },
+      { id: 'notes', path: '/notes' },
+      { id: 'teams', path: '/teams' },
+      { id: 'communication', path: '/communication' }
+    ];
+
+    const firstAccessible = modules.find(m => userProfile.permissions?.includes(m.id));
+    return firstAccessible ? firstAccessible.path : '/profile';
+  };
+
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate(getRedirectPath(user));
     }
   }, [user, navigate]);
 
@@ -22,11 +43,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // Let the useEffect handle the redirect to ensure profile data is loaded
     } catch (err: any) {
       console.error("Login failed", err);
       setError(err.message || 'Failed to login');
-    } finally {
       setLoading(false);
     }
   };

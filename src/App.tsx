@@ -10,6 +10,8 @@ import { cn } from './utils/cn';
 import { LayoutDashboard, Users, Briefcase, ChevronRight, LogOut, Shield, FileText, FolderOpen, Lock, LayoutGrid, Send, Bell, Mail, Search, Plus } from 'lucide-react';
 import { NotificationCenter } from './components/common/NotificationCenter';
 import { NotificationBanner } from './components/common/NotificationBanner';
+import { query, collection, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from './services/firebase';
 
 
 
@@ -71,7 +73,7 @@ const hasPermission = (user: any, moduleId: string) => {
 
 
 // Sidebar Item Component
-const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed }: { to: string, icon: any, label: string, moduleId: string, isCollapsed: boolean }) => {
+const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed, hasNew }: { to: string, icon: any, label: string, moduleId: string, isCollapsed: boolean, hasNew?: boolean }) => {
   const { user } = useAuth();
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -84,27 +86,96 @@ const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed }: { to: string,
     <Link 
       to={to} 
       className={cn(
-        "flex items-center gap-3 px-3 py-2 text-[13px] font-medium rounded-md transition-all duration-200 group",
+        "flex items-center gap-3 px-3 py-2 text-[13px] font-medium rounded-md transition-all duration-200 group relative",
         isActive 
           ? "bg-sidebar-item-active text-white" 
           : "text-slate-300 hover:bg-sidebar-item-hover hover:text-white"
       )}
       title={isCollapsed ? label : ""}
     >
-      <Icon size={18} className={cn(
-        "transition-colors",
-        isActive ? "text-white" : "text-slate-400 group-hover:text-white"
-      )} />
-      {!isCollapsed && <span>{label}</span>}
+      <div className="relative">
+        <Icon size={18} className={cn(
+          "transition-colors",
+          isActive ? "text-white" : "text-slate-400 group-hover:text-white"
+        )} />
+        {hasNew && !isActive && (
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-sidebar-bg animate-pulse" />
+        )}
+      </div>
+      {!isCollapsed && (
+        <span className="flex-1 flex items-center justify-between">
+          {label}
+          {hasNew && !isActive && (
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+          )}
+        </span>
+      )}
     </Link>
   );
 };
 
 // Main Layout Component
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { logout, user } = useAuth();
+  const { logout, user, updateProfile } = useAuth();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [latestTimestamps, setLatestTimestamps] = React.useState<Record<string, number>>({});
+
+  // Monitor collections for new items
+  React.useEffect(() => {
+    if (!user) return;
+
+    const collections = ['projects', 'notes', 'documents'];
+    const unsubs = collections.map(col => {
+      const q = query(collection(db, col), orderBy('createdAt', 'desc'), limit(1));
+      return onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : (data.createdAt || 0);
+          setLatestTimestamps(prev => ({ ...prev, [col]: timestamp }));
+        }
+      });
+    });
+
+    return () => unsubs.forEach(unsub => unsub());
+  }, [user]);
+
+  // Update last viewed on navigation
+  React.useEffect(() => {
+    if (!user) return;
+    const path = location.pathname.split('/')[1];
+    const trackableModules = ['projects', 'notes', 'documents'];
+    
+    if (trackableModules.includes(path)) {
+      const lastViewed = user.lastViewed || {};
+      const now = Date.now();
+      
+      // Only update if current latest is newer than what we have saved OR if we don't have a record
+      const currentModuleLatest = latestTimestamps[path] || 0;
+      const ourLastViewed = lastViewed[path] || 0;
+
+      if (currentModuleLatest > ourLastViewed) {
+        updateProfile({
+          lastViewed: {
+            ...lastViewed,
+            [path]: now
+          }
+        });
+      }
+    }
+  }, [location.pathname, user?.uid, latestTimestamps]);
+
+  const hasNew = (moduleId: string) => {
+    if (!user || user.lastViewed?.[moduleId] === undefined) {
+      // If we don't have a record, count it as "seen" to avoid initial flood of dots
+      // unless we want to show dots for everything the first time.
+      // Let's assume everything is seen if no record exists yet, to be less intrusive.
+      return false; 
+    }
+    const latest = latestTimestamps[moduleId === 'explorer' ? 'projects' : moduleId] || 0;
+    const lastViewed = user.lastViewed?.[moduleId === 'explorer' ? 'projects' : moduleId] || 0;
+    return latest > lastViewed;
+  };
   
   const getPageTitle = () => {
     const path = location.pathname;
@@ -159,13 +230,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           {!isCollapsed && <div className="text-slate-400 text-[11px] font-bold uppercase tracking-widest mt-4 mb-3 px-3 opacity-60">Main Menu</div>}
           <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" moduleId="dashboard" isCollapsed={isCollapsed} />
           <NavItem to="/clients" icon={Users} label="Clients" moduleId="clients" isCollapsed={isCollapsed} />
-          <NavItem to="/projects" icon={Briefcase} label="Projects" moduleId="projects" isCollapsed={isCollapsed} />
+          <NavItem to="/projects" icon={Briefcase} label="Projects" moduleId="projects" isCollapsed={isCollapsed} hasNew={hasNew('projects')} />
           <NavItem to="/teams" icon={Shield} label="Team" moduleId="teams" isCollapsed={isCollapsed} />
           
           {!isCollapsed && <div className="mt-8 mb-2 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Productivity</div>}
-          <NavItem to="/explorer" icon={LayoutGrid} label="Explorer" moduleId="explorer" isCollapsed={isCollapsed} />
-          <NavItem to="/notes" icon={FileText} label="Notes" moduleId="notes" isCollapsed={isCollapsed} />
-          <NavItem to="/documents" icon={FolderOpen} label="Documents" moduleId="documents" isCollapsed={isCollapsed} />
+          <NavItem to="/explorer" icon={LayoutGrid} label="Explorer" moduleId="explorer" isCollapsed={isCollapsed} hasNew={hasNew('explorer')} />
+          <NavItem to="/notes" icon={FileText} label="Notes" moduleId="notes" isCollapsed={isCollapsed} hasNew={hasNew('notes')} />
+          <NavItem to="/documents" icon={FolderOpen} label="Documents" moduleId="documents" isCollapsed={isCollapsed} hasNew={hasNew('documents')} />
           {user?.role === 'admin' && <NavItem to="/vault" icon={Lock} label="Vault" moduleId="vault" isCollapsed={isCollapsed} />}
           
           {!isCollapsed && <div className="mt-8 mb-2 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Communication</div>}

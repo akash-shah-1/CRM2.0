@@ -15,6 +15,8 @@ export interface UserProfile {
   permissions?: string[]; // List of module IDs the user can see
   projectAccess?: string[]; // IDs of projects the user is allowed to access
   fcmTokens?: string[]; // Device tokens for push notifications
+  lastViewed?: Record<string, number>; // Timestamps of last module visits
+  defaultPage?: string; // Preferred landing page
   createdAt: any;
 }
 

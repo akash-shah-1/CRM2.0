@@ -34,19 +34,21 @@ export default function TeamsPage() {
     password: '',
     role: UserRole.EMPLOYEE as string,
     permissions: [] as string[],
-    projectAccess: [] as string[]
+    projectAccess: [] as string[],
+    defaultPage: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const MODULES = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'clients', label: 'Clients' },
-    { id: 'projects', label: 'Projects' },
-    { id: 'explorer', label: 'Explorer' },
-    { id: 'notes', label: 'Notes' },
-    { id: 'documents', label: 'Documents' },
-    { id: 'vault', label: 'Vault' },
-    { id: 'chat', label: 'Chat' },
+    { id: 'dashboard', label: 'Dashboard', path: '/dashboard' },
+    { id: 'clients', label: 'Clients', path: '/clients' },
+    { id: 'projects', label: 'Projects', path: '/projects' },
+    { id: 'explorer', label: 'Explorer', path: '/explorer' },
+    { id: 'notes', label: 'Notes', path: '/notes' },
+    { id: 'documents', label: 'Documents', path: '/documents' },
+    { id: 'vault', label: 'Vault', path: '/vault' },
+    { id: 'chat', label: 'Chat', path: '/chat' },
+    { id: 'communication', label: 'Correspondence', path: '/communication' },
   ];
 
   useEffect(() => {
@@ -70,7 +72,8 @@ export default function TeamsPage() {
         password: '',
         role: member.role,
         permissions: member.permissions || [],
-        projectAccess: member.projectAccess || []
+        projectAccess: member.projectAccess || [],
+        defaultPage: (member as any).defaultPage || ''
       });
     } else {
       setEditingMember(null);
@@ -80,7 +83,8 @@ export default function TeamsPage() {
         password: '',
         role: UserRole.EMPLOYEE,
         permissions: ['dashboard', 'chat'],
-        projectAccess: []
+        projectAccess: [],
+        defaultPage: ''
       });
     }
     setIsModalOpen(true);
@@ -117,7 +121,8 @@ export default function TeamsPage() {
           displayName: formData.displayName,
           role: formData.role,
           permissions: formData.permissions,
-          projectAccess: formData.projectAccess
+          projectAccess: formData.projectAccess,
+          defaultPage: formData.defaultPage
         });
       } else {
         if (!formData.password || formData.password.length < 6) {
@@ -149,6 +154,7 @@ export default function TeamsPage() {
           role: formData.role,
           permissions: formData.permissions,
           projectAccess: formData.projectAccess,
+          defaultPage: formData.defaultPage,
           status: 'active',
           avatarUrl: null,
           createdAt: new Date().getTime()
@@ -443,6 +449,7 @@ export default function TeamsPage() {
 
           {isAdmin && (
             <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="max-w-xs">
                 <Select 
                   label="Access Role" 
@@ -455,6 +462,18 @@ export default function TeamsPage() {
                   ]}
                 />
               </div>
+              <div className="max-w-xs">
+                <Select 
+                  label="Default Landing Page" 
+                  value={formData.defaultPage} 
+                  onChange={(e) => setFormData({ ...formData, defaultPage: e.target.value })}
+                  options={[
+                    { label: 'Auto (First Accessible)', value: '' },
+                    ...MODULES.map(m => ({ label: m.label, value: m.path }))
+                  ]}
+                />
+              </div>
+            </div>
               
               <div className="space-y-3">
                 <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Module Permissions</label>

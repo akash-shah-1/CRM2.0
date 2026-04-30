@@ -8,57 +8,91 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/FormElements';
 import { ActionMenu } from '../../components/common/ActionMenu';
 
+import { subscribeToNotes, createNote, updateNote, removeNote, NoteData } from '../../services/noteService';
+import { Skeleton } from '../../components/ui/Skeleton';
+
 export default function NotesPage({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  const accessibleNotes = useMemo(() => {
-    if (isAdmin) return NOTES_DATA;
-    return NOTES_DATA.filter(n => user?.projectAccess?.includes(n.projectId));
+  const [dbNotes, setDbNotes] = useState<NoteData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeToNotes(isAdmin, user.projectAccess || [], (data) => {
+      setDbNotes(data);
+      setIsLoading(false);
+    });
+    return () => unsub();
   }, [user, isAdmin]);
 
-  const [notes, setNotes] = useState(accessibleNotes);
-  
-  useMemo(() => {
-    setNotes(accessibleNotes);
-  }, [accessibleNotes]);
-  
-  const filteredNotesByProject = useMemo(() => {
-    if (!projectId) return notes;
-    return notes.filter(n => n.projectId === projectId);
-  }, [notes, projectId]);
+  const combinedNotes = useMemo(() => {
+    const accessibleDummy = isAdmin 
+      ? NOTES_DATA 
+      : NOTES_DATA.filter(n => user?.projectAccess?.includes(n.projectId));
+    return [...dbNotes, ...accessibleDummy];
+  }, [dbNotes, isAdmin, user?.projectAccess]);
 
-  const [selectedNote, setSelectedNote] = useState<any>(filteredNotesByProject[0] || null);
+  const filteredNotesByProject = useMemo(() => {
+    if (!projectId) return combinedNotes;
+    return combinedNotes.filter(n => n.projectId === projectId);
+  }, [combinedNotes, projectId]);
+
+  const [selectedNote, setSelectedNote] = useState<any>(null);
+  
+  useEffect(() => {
+    if (!selectedNote && filteredNotesByProject.length > 0) {
+      setSelectedNote(filteredNotesByProject[0]);
+    }
+  }, [filteredNotesByProject, selectedNote]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<any>(null);
   const [formData, setFormData] = useState({ title: '', content: '', category: 'General' });
 
   const { searchTerm, setSearchTerm, filteredData } = useSearch(filteredNotesByProject, ['title', 'category', 'content']);
 
-  // Reset selected note when projectId changes
-  useEffect(() => {
-    setSelectedNote(filteredNotesByProject[0] || null);
-  }, [projectId, filteredNotesByProject]);
-
-  const handleAddNote = (e: React.FormEvent) => {
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newNote = {
-      id: Math.random().toString(36).substr(2, 9),
-      projectId: projectId || '1',
-      ...formData,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setNotes([newNote, ...notes]);
-    setSelectedNote(newNote);
+    if (editingNote) {
+      if (editingNote.id.length > 10) {
+        await updateNote(editingNote.id, formData);
+      }
+    } else {
+      await createNote({
+        projectId: projectId || '1',
+        ...formData,
+        authorId: user?.uid,
+        authorName: user?.displayName || 'Unknown'
+      });
+    }
+    
     setIsModalOpen(false);
     setFormData({ title: '', content: '', category: 'General' });
+    setEditingNote(null);
   };
 
-  const handleDeleteNote = (id: string) => {
+  const handleEditNote = (note: any) => {
+    setEditingNote(note);
+    setFormData({ title: note.title, content: note.content, category: note.category });
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteNote = async (id: string) => {
     if (confirm('Delete this note?')) {
-      const remaining = notes.filter(n => n.id !== id);
-      setNotes(remaining);
-      if (selectedNote?.id === id) setSelectedNote(remaining[0] || null);
+      if (id.length > 10) {
+        await removeNote(id);
+      }
+      if (selectedNote?.id === id) setSelectedNote(null);
     }
+  };
+
+  const formatDate = (date: any) => {
+    if (!date) return 'Just now';
+    if (typeof date === 'string') return date;
+    const d = date.toMillis ? new Date(date.toMillis()) : new Date(date);
+    return d.toLocaleDateString();
   };
 
   return (
@@ -93,7 +127,14 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {filteredData.map((note) => (
+            {isLoading ? (
+              [1, 2, 3, 4].map(i => (
+                <div key={i} className="p-3 space-y-2 animate-pulse">
+                  <div className="h-4 bg-slate-100 rounded w-3/4" />
+                  <div className="h-3 bg-slate-100 rounded w-1/2" />
+                </div>
+              ))
+            ) : filteredData.map((note) => (
               <button
                 key={note.id}
                 onClick={() => setSelectedNote(note)}
@@ -104,7 +145,7 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
                 <div className="font-semibold text-slate-900 text-sm truncate pr-6">{note.title}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-slate-400 font-medium">
                   <span className="flex items-center gap-1 uppercase tracking-wider">{note.category}</span>
-                  <span>{note.createdAt}</span>
+                  <span>{formatDate(note.createdAt)}</span>
                 </div>
               </button>
             ))}
@@ -119,12 +160,15 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 text-left">{selectedNote.title}</h3>
                   <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
-                    <span className="flex items-center gap-1"><Calendar size={14} /> Created {selectedNote.createdAt}</span>
+                    <span className="flex items-center gap-1"><Calendar size={14} /> Created {formatDate(selectedNote.createdAt)}</span>
                     <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-md text-slate-600 font-bold uppercase text-[10px] tracking-widest"><Tag size={10} /> {selectedNote.category}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                   <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
+                   <button 
+                     onClick={() => handleEditNote(selectedNote)}
+                     className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
+                   >
                      <Edit size={18} />
                    </button>
                    <button 
@@ -150,12 +194,20 @@ export default function NotesPage({ projectId }: { projectId?: string }) {
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Create New Note"
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingNote(null);
+        }}
+        title={editingNote ? "Edit Note" : "Create New Note"}
         footer={
           <>
-            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md">Cancel</button>
-            <button onClick={handleAddNote} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md">Create Note</button>
+            <button onClick={() => {
+              setIsModalOpen(false);
+              setEditingNote(null);
+            }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md">Cancel</button>
+            <button onClick={handleAddNote} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md">
+              {editingNote ? "Update Note" : "Create Note"}
+            </button>
           </>
         }
       >

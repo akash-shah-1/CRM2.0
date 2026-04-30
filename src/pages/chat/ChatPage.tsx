@@ -185,18 +185,29 @@ export default function ChatPage() {
   }, [activeChannelId, activeDMId, user?.uid, messagesLimit]);
 
   useEffect(() => {
-    if (!giphySearch.trim()) { setGifs([]); return; }
     const fetchGifs = async () => {
       setIsSearchingGifs(true);
       try {
-        const resp = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&q=${encodeURIComponent(giphySearch)}&limit=10`);
+        const query = giphySearch.trim();
+        const endpoint = query 
+          ? `https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&q=${encodeURIComponent(query)}&limit=15`
+          : `https://api.giphy.com/v1/gifs/trending?api_key=dc6zaTOxFJmzC&limit=15`;
+        
+        const resp = await fetch(endpoint);
         const result = await resp.json();
         setGifs(result.data || []);
-      } catch (err) { console.error(err); } finally { setIsSearchingGifs(false); }
+      } catch (err) { 
+        console.error('Giphy error:', err); 
+      } finally { 
+        setIsSearchingGifs(false); 
+      }
     };
-    const timeout = setTimeout(fetchGifs, 500);
-    return () => clearTimeout(timeout);
-  }, [giphySearch]);
+
+    if (showGifPicker) {
+      const timeout = setTimeout(fetchGifs, giphySearch.trim() ? 500 : 0);
+      return () => clearTimeout(timeout);
+    }
+  }, [giphySearch, showGifPicker]);
 
   // Handlers
   const handleSendMessage = async (e: React.FormEvent) => {

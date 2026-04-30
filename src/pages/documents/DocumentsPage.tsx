@@ -144,7 +144,17 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       render: (doc: any) => (
         <div 
           className="flex items-center gap-3 cursor-pointer group/name"
-          onClick={() => doc.type === 'PDF' && setViewingFile({ name: doc.name, url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', type: 'pdf' })}
+          onClick={() => {
+            if (doc.type === 'PDF') {
+              setViewingFile({ 
+                name: doc.name, 
+                url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 
+                type: 'pdf' 
+              });
+            } else if (doc.url) {
+              window.open(doc.url, '_blank');
+            }
+          }}
         >
           <div className="w-9 h-9 rounded-md bg-bg-light flex items-center justify-center border border-border group-hover/name:bg-primary/10 transition-colors">
             {getFileIcon(doc.type)}
@@ -181,14 +191,36 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
       align: 'right' as const,
       render: (item: any) => (
         <div className="flex items-center justify-end gap-1">
-          <button className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-primary hover:bg-primary/5 rounded transition-all">
-            <Download size={16} />
-          </button>
+          {item.url && (
+            <a 
+              href={item.url} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-primary hover:bg-primary/5 rounded transition-all"
+              title="Download File"
+            >
+              <Download size={16} />
+            </a>
+          )}
           <ActionMenu 
             items={[
-              { label: 'View Document', onClick: () => item.type === 'PDF' && setViewingFile({ name: item.name, url: item.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', type: 'pdf' }), icon: FileText },
+              { 
+                label: 'View Document', 
+                onClick: () => {
+                  if (item.type === 'PDF') {
+                    setViewingFile({ 
+                      name: item.name, 
+                      url: item.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 
+                      type: 'pdf' 
+                    });
+                  } else if (item.url) {
+                    window.open(item.url, '_blank');
+                  }
+                }, 
+                icon: FileText 
+              },
               { label: 'Rename', onClick: () => console.log('Rename', item.id) },
-              { label: 'Share Link', onClick: () => console.log('Share', item.id) },
+              { label: 'Share Link', onClick: () => item.url && navigator.clipboard.writeText(item.url) },
               { label: 'Delete', onClick: () => handleDelete(item.id, !!item.createdAt && typeof item.createdAt !== 'string', item.storagePath), variant: 'danger' },
             ]}
           />
