@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, doc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { UserProfile } from '../types/auth';
-import { Users, Briefcase, Calendar, TrendingUp } from 'lucide-react';
+import { Users, Briefcase, Calendar, TrendingUp, DollarSign, Wallet } from 'lucide-react';
+import { GlobalStats } from '../services/statsService';
 
 export interface DashboardStat {
   id: string;
@@ -15,10 +16,10 @@ export interface DashboardStat {
 
 export function useDashboardStats(user: UserProfile | null) {
   const [stats, setStats] = useState<DashboardStat[]>([
-    { id: '1', label: 'Total Clients', value: '...', trend: '', status: 'neutral', icon: Users },
-    { id: '2', label: 'My Projects', value: '...', trend: '', status: 'neutral', icon: Briefcase },
-    { id: '3', label: 'Active Documentation', value: '...', trend: '', status: 'neutral', icon: Calendar },
-    { id: '4', label: 'Completed Projects', value: '...', trend: '', status: 'neutral', icon: TrendingUp },
+    { id: '1', label: 'Earning', value: '...', trend: '12%', status: 'up', icon: Wallet },
+    { id: '2', label: 'Sales', value: '...', trend: '5%', status: 'up', icon: DollarSign },
+    { id: '3', label: 'Active Projects', value: '...', trend: '', status: 'neutral', icon: Briefcase },
+    { id: '4', label: 'Completed', value: '...', trend: '', status: 'neutral', icon: TrendingUp },
   ]);
 
   const isAdmin = user?.role === 'admin';
@@ -26,9 +27,21 @@ export function useDashboardStats(user: UserProfile | null) {
   useEffect(() => {
     if (!user) return;
 
-    // 1. Clients count
-    const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
-      setStats(prev => prev.map(s => s.id === '1' ? { ...s, value: snap.size.toString() } : s));
+    // 1. Global Earnings & Sales (Admin Only or simplified for others)
+    const unsubStats = onSnapshot(doc(db, 'system_stats', 'global'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as GlobalStats;
+        setStats(prev => prev.map(s => {
+          if (s.id === '1') return { ...s, value: `$${(data.totalEarnings || 0).toLocaleString()}` };
+          if (s.id === '2') return { ...s, value: (data.totalSales || 0).toString() };
+          return s;
+        }));
+      } else {
+        setStats(prev => prev.map(s => {
+          if (s.id === '1' || s.id === '2') return { ...s, value: '$0' };
+          return s;
+        }));
+      }
     });
 
     // 2. Projects count
@@ -37,28 +50,18 @@ export function useDashboardStats(user: UserProfile | null) {
       : query(collection(db, 'projects'), where('__name__', 'in', user.projectAccess && user.projectAccess.length > 0 ? user.projectAccess : ['none']));
 
     const unsubProjects = onSnapshot(projectsQuery, (snap) => {
-      const total = snap.size;
+      const active = snap.docs.filter(d => d.data().status === 'active' || d.data().status === 'lead').length;
       const completed = snap.docs.filter(d => d.data().status === 'completed').length;
       setStats(prev => prev.map(s => {
-        if (s.id === '2') return { ...s, value: total.toString() };
+        if (s.id === '3') return { ...s, value: active.toString() };
         if (s.id === '4') return { ...s, value: completed.toString() };
         return s;
       }));
     });
 
-    // 3. Documents count
-    const docsQuery = isAdmin
-      ? query(collection(db, 'documents'))
-      : query(collection(db, 'documents'), where('projectId', 'in', user.projectAccess && user.projectAccess.length > 0 ? user.projectAccess : ['none']));
-
-    const unsubDocs = onSnapshot(docsQuery, (snap) => {
-      setStats(prev => prev.map(s => s.id === '3' ? { ...s, value: snap.size.toString() } : s));
-    });
-
     return () => {
-      unsubClients();
+      unsubStats();
       unsubProjects();
-      unsubDocs();
     };
   }, [user, isAdmin]);
 

@@ -23,34 +23,24 @@ export function NotificationCenter() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
 
-    // In a real app, this would be a 'notifications' collection
-    // For this prototype, we'll use a mocked listener or listen to 'activity' if available
-    // But let's assume a notifications collection for best practice
-    let q;
-    if (user?.role === 'admin') {
-      q = query(
-        collection(db, 'notifications'),
-        orderBy('timestamp', 'desc'),
-        limit(20)
-      );
-    } else {
-      q = query(
-        collection(db, 'notifications'),
-        where('userId', '==', user?.uid),
-        orderBy('timestamp', 'desc'),
-        limit(20)
-      );
-    }
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', user.uid),
+      orderBy('timestamp', 'desc'),
+      limit(20)
+    );
 
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
       setNotifications(data);
+    }, (err) => {
+      console.warn('Notification listener error:', err.message);
     });
 
     return () => unsub();
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

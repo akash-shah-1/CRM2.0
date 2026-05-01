@@ -6,57 +6,118 @@ import {
   addDoc, 
   serverTimestamp, 
   where,
-  limit
+  limit,
+  doc,
+  updateDoc,
+  arrayUnion,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { handleFirestoreError, OperationType } from '../utils/firebaseErrorHandler';
+import { createNotification } from '../utils/notifications';
 
-export interface CommunicationLog {
+export interface InternalEmail {
   id?: string;
-  fromId: string;
-  fromName: string;
-  fromEmail: string;
-  toEmail: string;
+  senderId: string;
+  senderName: string;
+  senderEmail: string;
+  recipientIds: string[];
+  recipientEmails: string[];
   subject: string;
-  message: string;
+  body: string;
+  priority: 'normal' | 'high' | 'urgent';
   timestamp: any;
-  status: 'sent' | 'failed' | 'scheduled';
-  type?: 'client' | 'team';
-  toName?: string;
+  readBy: string[];
+  threadId?: string;
+  replyToId?: string;
 }
 
-export function subscribeToCommunicationLogs(
-  isAdmin: boolean,
-  userId: string,
-  callback: (logs: CommunicationLog[]) => void
-) {
-  let q;
-  if (isAdmin) {
-    q = query(collection(db, 'communications'), orderBy('timestamp', 'desc'));
-  } else {
-    q = query(
-      collection(db, 'communications'),
-      where('fromId', '==', userId),
-      orderBy('timestamp', 'desc')
-    );
-  }
+export function subscribeToInbox(userId: string, callback: (emails: InternalEmail[]) => void) {
+  const q = query(
+    collection(db, 'internal_emails'),
+    where('recipientIds', 'array-contains', userId),
+    orderBy('timestamp', 'desc')
+  );
 
   return onSnapshot(q, (snap) => {
-    const logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommunicationLog));
-    callback(logs);
+    const emails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as InternalEmail));
+    callback(emails);
   }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, 'communications');
+    handleFirestoreError(error, OperationType.LIST, 'internal_emails');
   });
 }
 
-export async function logCommunication(data: Omit<CommunicationLog, 'id' | 'timestamp'>) {
+export function subscribeToSentEmails(userId: string, callback: (emails: InternalEmail[]) => void) {
+  const q = query(
+    collection(db, 'internal_emails'),
+    where('senderId', '==', userId),
+    orderBy('timestamp', 'desc')
+  );
+
+  return onSnapshot(q, (snap) => {
+    const emails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as InternalEmail));
+    callback(emails);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, 'internal_emails');
+  });
+}
+
+export async function sendInternalEmail(data: Omit<InternalEmail, 'id' | 'timestamp' | 'readBy'>) {
   try {
-    const docRef = await addDoc(collection(db, 'communications'), {
+    const emailData: any = {
       ...data,
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+      readBy: []
+    };
+
+    const docRef = await addDoc(collection(db, 'internal_emails'), emailData);
+    
+    // If no threadId was provided, it's a new thread. Set threadId to its own ID.
+    if (!data.threadId) {
+      await updateDoc(doc(db, 'internal_emails', docRef.id), {
+        threadId: docRef.id
+      });
+    }
+
+    // Create notifications for each recipient
+    const notificationPromises = data.recipientIds.map(recipientId => 
+      createNotification({
+        title: 'New Internal Email',
+        message: `You received an email from ${data.senderName}: ${data.subject}`,
+        type: 'info',
+        userId: recipientId
+      })
+    );
+    
+    await Promise.all(notificationPromises);
+    
     return docRef.id;
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, 'communications');
+    handleFirestoreError(error, OperationType.CREATE, 'internal_emails');
+  }
+}
+
+export async function markEmailAsRead(emailId: string, userId: string) {
+  try {
+    const emailRef = doc(db, 'internal_emails', emailId);
+    await updateDoc(emailRef, {
+      readBy: arrayUnion(userId)
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, 'internal_emails');
+  }
+}
+
+export async function deleteInternalEmails(emailIds: string[]) {
+  try {
+    const batch = writeBatch(db);
+    emailIds.forEach(id => {
+      const docRef = doc(db, 'internal_emails', id);
+      batch.delete(docRef);
+    });
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, 'internal_emails');
   }
 }

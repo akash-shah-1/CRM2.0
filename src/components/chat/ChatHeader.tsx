@@ -9,6 +9,8 @@ interface ChatHeaderProps {
   setChatSearch: (val: string) => void;
   isUserOnline: (member: any) => boolean;
   onDeleteRoom?: () => void;
+  onViewMembers?: () => void;
+  onViewInfo?: () => void;
   canManage?: boolean;
 }
 
@@ -20,6 +22,8 @@ export default function ChatHeader({
   setChatSearch,
   isUserOnline,
   onDeleteRoom,
+  onViewMembers,
+  onViewInfo,
   canManage
 }: ChatHeaderProps) {
   return (
@@ -73,16 +77,16 @@ export default function ChatHeader({
         {roomInfo.type !== 'dm' && (
           <>
             <div className="w-px h-4 bg-border mx-1" />
-            <button className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all" title="View Members">
+            <button 
+              onClick={onViewMembers}
+              className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all" 
+              title="View Members"
+            >
               <Users size={18} />
             </button>
             {canManage && (
               <button 
-                onClick={() => {
-                  if (confirm('Are you sure you want to delete this channel and all its messages?')) {
-                    onDeleteRoom?.();
-                  }
-                }}
+                onClick={onDeleteRoom}
                 className="p-2 text-text-secondary hover:text-danger hover:bg-danger/5 rounded-md transition-all" 
                 title="Delete Channel"
               >
@@ -93,7 +97,11 @@ export default function ChatHeader({
         )}
         
         <div className="w-px h-4 bg-border mx-1" />
-        <button className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+        <button 
+          onClick={onViewInfo}
+          className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-md transition-all"
+          title="Room Info"
+        >
           <Info size={18} />
         </button>
       </div>

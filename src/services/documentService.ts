@@ -17,10 +17,8 @@ import {
   getDownloadURL,
   deleteObject 
 } from 'firebase/storage';
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import { handleFirestoreError, OperationType } from '../utils/firebaseErrorHandler';
-
-const storage = getStorage();
 
 export interface DocumentData {
   id?: string;
@@ -80,8 +78,9 @@ export async function uploadDocument(data: Omit<DocumentData, 'id' | 'createdAt'
 
     const docRef = await addDoc(collection(db, 'documents'), {
       ...data,
-      url,
-      storagePath,
+      uploadedByUid: data.uploadedByUid || '', // Ensure it's never undefined
+      url: url || '',
+      storagePath: storagePath || '',
       createdAt: serverTimestamp()
     });
     return docRef.id;

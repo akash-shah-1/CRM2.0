@@ -51,6 +51,7 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [viewingFile, setViewingFile] = useState<{ name: string, url: string, type: string } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [formData, setFormData] = useState({ name: '', type: 'PDF', projectId: projectId || '1' });
   
@@ -63,8 +64,10 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploading) return;
     if (!formData.name && !selectedFile) return;
 
+    setIsUploading(true);
     try {
       const fileName = formData.name || selectedFile?.name || 'Untitled Document';
       const fileSize = selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB` : '1.2 MB';
@@ -98,8 +101,11 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
         projectId: formData.projectId,
         type: 'document'
       });
-    } catch (error) {
-       // Service context already handled error throwing if needed
+    } catch (error: any) {
+       console.error("Upload failed:", error);
+       alert("Upload failed. Please check your connection or permissions.");
+    } finally {
+       setIsUploading(false);
     }
   };
 
@@ -301,9 +307,9 @@ export default function DocumentsPage({ projectId }: { projectId?: string }) {
             <button 
               onClick={handleUpload} 
               className="px-5 py-2 bg-primary text-white text-[13px] font-bold rounded shadow-sm shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50"
-              disabled={!selectedFile && !formData.name}
+              disabled={isUploading || (!selectedFile && !formData.name)}
             >
-              Upload Document
+              {isUploading ? 'Uploading...' : 'Upload Document'}
             </button>
           </div>
         }

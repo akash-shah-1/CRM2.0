@@ -1,6 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../store/AuthContext';
 import { 
+  Hash,
+  Search, 
+  X, 
+  Info, 
+  Trash2, 
+  Users 
+} from 'lucide-react';
+import { cn } from '../../utils/cn';
+import { 
   collection, 
   addDoc, 
   query, 
@@ -14,7 +23,8 @@ import {
   deleteDoc,
   limit
 } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../services/firebase';
 import { handleFirestoreError, OperationType } from '../../utils/firebaseErrorHandler';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/FormElements';
@@ -59,6 +69,10 @@ export default function ChatPage() {
   const [newChannelData, setNewChannelData] = useState({ name: '', description: '', type: 'public' });
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [isSubmittingChannel, setIsSubmittingChannel] = useState(false);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
 
   const [lastRead, setLastRead] = useState<Record<string, number>>(() => {
     try {
@@ -101,8 +115,27 @@ export default function ChatPage() {
       };
     }
     const channel = channels.find(c => c.id === activeChannelId);
-    return { title: channel?.name, description: channel?.description, type: channel?.type };
+    return { 
+      id: channel?.id,
+      title: channel?.name, 
+      description: channel?.description, 
+      type: channel?.type,
+      participants: channel?.participants || []
+    };
   }, [activeChannelId, activeDMId, channels, teamMembers]);
+
+  const displayParticipants = useMemo(() => {
+    if (activeDMId) {
+      return teamMembers.filter(m => m.uid === activeDMId || m.uid === user?.uid);
+    }
+    // For channels, if participants list is explicitly set, use it. 
+    // Otherwise fallback to all team members for public channels.
+    const roomParticipants = roomInfo.participants || [];
+    if (roomParticipants.length > 0) {
+      return teamMembers.filter(m => roomParticipants.includes(m.uid));
+    }
+    return teamMembers;
+  }, [roomInfo, teamMembers, user, activeDMId]);
 
   // Effects & Listeners
   const [messagesLimit, setMessagesLimit] = useState(30);
@@ -123,11 +156,29 @@ export default function ChatPage() {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'channels'), (snap) => {
       if (snap.empty) {
-        CHANNELS_DATA.forEach(c => addDoc(collection(db, 'channels'), { ...c, createdAt: serverTimestamp() }));
+        // Initialize with default channels and generic participants (all current users)
+        const init = async () => {
+          const { getDocs } = await import('firebase/firestore');
+          const usersSnap = await getDocs(collection(db, 'users'));
+          const userIds = usersSnap.docs.map(d => d.id);
+          
+          CHANNELS_DATA.forEach(c => {
+            addDoc(collection(db, 'channels'), { 
+              ...c, 
+              participants: userIds,
+              createdAt: serverTimestamp(),
+              creatorId: 'system'
+            });
+          });
+        };
+        init();
       } else {
         const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ChatRoom[];
         setChannels(docs);
-        if (activeChannelId === '1' && !docs.find(c => c.id === '1')) setActiveChannelId(docs[0].id);
+        if (activeChannelId === '1' && !docs.find(c => c.id === '1')) {
+          const first = docs[0];
+          if (first) setActiveChannelId(first.id);
+        }
       }
       setIsLoadingChannels(false);
     });
@@ -175,11 +226,21 @@ export default function ChatPage() {
       const activeId = activeDMId || activeChannelId;
       if (activeId && user?.uid) {
         const now = Date.now();
-        setLastRead(prev => {
-          const updated = { ...prev, [activeId]: now };
-          localStorage.setItem(`chat_last_read_${user.uid}`, JSON.stringify(updated));
-          return updated;
-        });
+        setLastRead(prev => ({ ...prev, [activeId]: now }));
+        
+        // Move side effects out of the functional update to avoid React errors during render/commit
+        setTimeout(() => {
+          try {
+            const saved = localStorage.getItem(`chat_last_read_${user.uid}`);
+            const lastReadMap = saved ? JSON.parse(saved) : {};
+            lastReadMap[activeId] = now;
+            localStorage.setItem(`chat_last_read_${user.uid}`, JSON.stringify(lastReadMap));
+            // Dispatch event to notify App.tsx sidebar
+            window.dispatchEvent(new Event('storage'));
+          } catch (e) {
+            console.error('Error updating chat last read storage:', e);
+          }
+        }, 0);
       }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'messages'));
   }, [activeChannelId, activeDMId, user?.uid, messagesLimit]);
@@ -219,13 +280,21 @@ export default function ChatPage() {
     setShowEmojiPicker(false);
     setShowGifPicker(false);
     try {
+      const currentChannel = channels.find(c => c.id === activeChannelId);
+      const channelParticipants = currentChannel?.participants || [];
+      
       const msgData: any = {
         text,
         senderId: user.uid,
         senderName: user.displayName,
         timestamp: serverTimestamp(),
         readBy: [user.uid],
-        participants: activeDMId ? [user.uid, activeDMId] : [user.uid, ...(channels.find(c => c.id === activeChannelId)?.participants || [])]
+        // If DM, both are participants. If channel, use channel participants or all team members if public/none listed.
+        participants: activeDMId 
+          ? [user.uid, activeDMId] 
+          : (channelParticipants.length > 0 
+              ? [...new Set([...channelParticipants, user.uid])] 
+              : teamMembers.map(m => m.uid))
       };
       if (!activeDMId) msgData.channelId = activeChannelId;
       else msgData.recipientId = activeDMId;
@@ -244,18 +313,41 @@ export default function ChatPage() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user || !file.type.startsWith('image/')) return;
+    
     try {
-      const msgData = {
+      // 1. Create a storage reference
+      const storageRef = ref(storage, `chat_attachments/${user.uid}/${Date.now()}_${file.name}`);
+      
+      // 2. Upload the file
+      const snapshot = await uploadBytes(storageRef, file);
+      
+      // 3. Get the download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const currentChannel = channels.find(c => c.id === activeChannelId);
+      const channelParticipants = currentChannel?.participants || [];
+
+      const msgData: any = {
         text: `Sent an image: ${file.name}`,
         senderId: user.uid,
         senderName: user.displayName,
-        attachments: [{ type: 'image', name: file.name, url: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800' }],
+        attachments: [{ type: 'image', name: file.name, url: downloadURL }],
         timestamp: serverTimestamp(),
         readBy: [user.uid],
-        ...(activeDMId ? { recipientId: activeDMId, participants: [user.uid, activeDMId] } : { channelId: activeChannelId, participants: [user.uid] })
+        participants: activeDMId 
+          ? [user.uid, activeDMId] 
+          : (channelParticipants.length > 0 
+              ? [...new Set([...channelParticipants, user.uid])] 
+              : teamMembers.map(m => m.uid))
       };
+      if (!activeDMId) msgData.channelId = activeChannelId;
+      else msgData.recipientId = activeDMId;
+
       await addDoc(collection(db, 'messages'), msgData);
-    } catch (err) { handleFirestoreError(err, OperationType.CREATE, 'messages'); }
+    } catch (err) { 
+      console.error('File upload error:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'chat_attachments'); 
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,6 +366,9 @@ export default function ChatPage() {
   const handleSendGif = async (url: string) => {
     if (!user) return;
     try {
+      const currentChannel = channels.find(c => c.id === activeChannelId);
+      const channelParticipants = currentChannel?.participants || [];
+
       const msgData = {
         text: 'Sent a GIF',
         senderId: user.uid,
@@ -281,7 +376,12 @@ export default function ChatPage() {
         attachments: [{ type: 'image', url }],
         timestamp: serverTimestamp(),
         readBy: [user.uid],
-        ...(activeDMId ? { recipientId: activeDMId, participants: [user.uid, activeDMId] } : { channelId: activeChannelId, participants: [user.uid] })
+        participants: activeDMId 
+          ? [user.uid, activeDMId] 
+          : (channelParticipants.length > 0 
+              ? [...new Set([...channelParticipants, user.uid])] 
+              : teamMembers.map(m => m.uid)),
+        ...(activeDMId ? { recipientId: activeDMId } : { channelId: activeChannelId })
       };
       await addDoc(collection(db, 'messages'), msgData);
       setShowGifPicker(false);
@@ -312,21 +412,51 @@ export default function ChatPage() {
   }, [teamMembers, user, mentionQuery]);
 
   const handleDeleteRoom = async () => {
-    if (!activeChannelId || activeChannelId === '1') return;
+    if (!activeChannelId || !activeChannel || !user) {
+      console.log('Delete Room: Missing required data', { activeChannelId, activeChannel, user });
+      return;
+    }
+    
+    // Only block general deletion for non-admins
+    if (activeChannel.name.toLowerCase() === 'general' && user.role !== 'admin') {
+      alert("Only administrators can delete the general channel.");
+      return;
+    }
+
+    console.log('Starting deletion of room:', activeChannelId);
+    setIsDeletingRoom(true);
     try {
-      // 1. Delete all messages in the channel
+      // 1. Delete messages in the channel
+      const { getDocs, writeBatch, query, where, collection } = await import('firebase/firestore');
       const q = query(collection(db, 'messages'), where('channelId', '==', activeChannelId));
-      onSnapshot(q, (snap) => {
-        snap.forEach(async (d) => {
-          await deleteDoc(doc(db, 'messages', d.id));
-        });
+      const snap = await getDocs(q);
+      
+      console.log(`Deleting ${snap.docs.length} messages...`);
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => {
+        batch.delete(d.ref);
       });
+      await batch.commit();
+      
       // 2. Delete the channel itself
+      console.log('Deleting channel doc...');
       await deleteDoc(doc(db, 'channels', activeChannelId));
-      setActiveChannelId('1');
+      
+      // 3. Reset state
+      console.log('Success! Resetting state...');
+      const nextChannel = channels.find(c => c.id !== activeChannelId && c.name.toLowerCase() === 'general') || channels.find(c => c.id !== activeChannelId);
+      if (nextChannel) {
+        setActiveChannelId(nextChannel.id);
+      } else {
+        setActiveChannelId('1');
+      }
       setActiveDMId(null);
+      setIsDeleteModalOpen(false);
     } catch (err) {
+      console.error('Delete room full error:', err);
       handleFirestoreError(err, OperationType.DELETE, `channels/${activeChannelId}`);
+    } finally {
+      setIsDeletingRoom(false);
     }
   };
 
@@ -351,7 +481,9 @@ export default function ChatPage() {
           showChatSearch={showChatSearch} setShowChatSearch={setShowChatSearch}
           chatSearch={chatSearch} setChatSearch={setChatSearch}
           canManage={canManage}
-          onDeleteRoom={handleDeleteRoom}
+          onDeleteRoom={() => setIsDeleteModalOpen(true)}
+          onViewMembers={() => setIsMembersModalOpen(true)}
+          onViewInfo={() => setIsInfoModalOpen(true)}
         />
 
         <ChatMessages 
@@ -425,6 +557,152 @@ export default function ChatPage() {
                } catch (err) { handleFirestoreError(err, OperationType.CREATE, 'channels'); } finally { setIsSubmittingChannel(false); }
             }} disabled={isSubmittingChannel} className="px-6 py-2 bg-primary text-white rounded-md text-[12px] font-bold uppercase tracking-widest shadow-md hover:shadow-lg disabled:opacity-50">
               {isSubmittingChannel ? 'Creating...' : 'Create Channel'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Members Modal */}
+      <Modal 
+        isOpen={isMembersModalOpen} 
+        onClose={() => setIsMembersModalOpen(false)} 
+        title={`${roomInfo.title} - Members`}
+      >
+        <div className="space-y-4">
+          <div className="text-[12px] text-text-secondary mb-4">
+            {roomInfo.type === 'dm' ? 'Direct message participants' : 'Channel members'}
+          </div>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+            {displayParticipants
+              .sort((a, b) => (isUserOnline(b) ? 1 : 0) - (isUserOnline(a) ? 1 : 0))
+              .map((member: any) => (
+                <div key={member.uid} className="flex items-center gap-3 p-3 bg-bg-light/30 rounded-md border border-border/50">
+                  <div className="w-10 h-10 rounded-md bg-white border border-border flex items-center justify-center font-bold text-primary">
+                    {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover rounded-md" /> : (member.displayName || member.name)?.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-bold text-text-primary truncate">{member.displayName || member.name}</span>
+                      <div className={cn("w-2 h-2 rounded-full", isUserOnline(member) ? "bg-success" : "bg-text-secondary/30")} />
+                    </div>
+                    <div className="text-[11px] text-text-secondary truncate uppercase tracking-wider">{member.role}</div>
+                  </div>
+                  {activeChannel?.creatorId === member.uid && (
+                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[9px] font-bold rounded uppercase tracking-widest">Creator</span>
+                  )}
+                </div>
+              ))}
+          </div>
+          <div className="flex justify-end pt-4 border-t border-border mt-4">
+            <button 
+              onClick={() => setIsMembersModalOpen(false)} 
+              className="px-6 py-2 bg-primary text-white rounded-md text-[12px] font-bold uppercase tracking-widest shadow-md"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Room Info Modal */}
+      <Modal 
+        isOpen={isInfoModalOpen} 
+        onClose={() => setIsInfoModalOpen(false)} 
+        title="Room Information"
+      >
+        <div className="space-y-6">
+          <div className="flex flex-col items-center text-center py-4">
+            <div className="w-20 h-20 rounded-xl bg-bg-light border border-border flex items-center justify-center text-text-secondary font-bold text-3xl mb-4 shadow-sm">
+              {roomInfo.type === 'dm' ? roomInfo.title?.charAt(0) : <Hash size={40} />}
+            </div>
+            <h3 className="text-xl font-bold text-text-primary">{roomInfo.title}</h3>
+            <p className="text-[13px] text-text-secondary mt-1">{roomInfo.description || 'No description provided'}</p>
+          </div>
+
+          <div className="space-y-4 border-t border-border pt-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-bg-light/30 rounded-md border border-border/50">
+                <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">Type</div>
+                <div className="text-[13px] font-bold text-text-primary capitalize">{roomInfo.type === 'dm' ? 'Direct Message' : 'Channel'}</div>
+              </div>
+              {!activeDMId && (
+                <div className="p-3 bg-bg-light/30 rounded-md border border-border/50">
+                  <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">Privacy</div>
+                  <div className="text-[13px] font-bold text-text-primary capitalize">{activeChannel?.type || 'Public'}</div>
+                </div>
+              )}
+            </div>
+
+            {!activeDMId && (
+              <>
+                <div className="p-3 bg-bg-light/30 rounded-md border border-border/50">
+                  <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">Created By</div>
+                  <div className="text-[13px] font-bold text-text-primary">
+                    {teamMembers.find(m => m.uid === activeChannel?.creatorId)?.displayName || 'System'}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg-light/30 rounded-md border border-border/50">
+                  <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">Total Members</div>
+                  <div className="text-[13px] font-bold text-text-primary">
+                    {(activeChannel?.participants || []).length} people
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeDMId && roomInfo.status && (
+              <div className="p-3 bg-bg-light/30 rounded-md border border-border/50">
+                <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">Current Status</div>
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-2 h-2 rounded-full", isUserOnline(teamMembers.find(m => m.uid === activeDMId)) ? "bg-success" : "bg-text-secondary/30")} />
+                  <span className="text-[13px] font-bold text-text-primary capitalize">{roomInfo.status}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-border mt-4">
+            <button 
+              onClick={() => setIsInfoModalOpen(false)} 
+              className="px-6 py-2 bg-primary text-white rounded-md text-[12px] font-bold uppercase tracking-widest shadow-md"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        isOpen={isDeleteModalOpen} 
+        onClose={() => !isDeletingRoom && setIsDeleteModalOpen(false)} 
+        title="Delete Channel"
+      >
+        <div className="space-y-6">
+          <div className="flex flex-col items-center text-center py-4">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-4">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-text-primary">Are you sure?</h3>
+            <p className="text-[14px] text-text-secondary mt-2">
+              This will permanently delete the channel <span className="font-bold text-text-primary">#{roomInfo.title}</span> and all of its messages. This action cannot be undone.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
+            <button 
+              disabled={isDeletingRoom}
+              onClick={() => setIsDeleteModalOpen(false)} 
+              className="px-5 py-2 text-[12px] font-bold text-text-secondary hover:text-text-primary uppercase"
+            >
+              Cancel
+            </button>
+            <button 
+              disabled={isDeletingRoom}
+              onClick={handleDeleteRoom}
+              className="px-6 py-2 bg-red-600 text-white rounded-md text-[12px] font-bold uppercase tracking-widest shadow-md hover:bg-red-700 transition-all disabled:opacity-50"
+            >
+              {isDeletingRoom ? 'Deleting...' : 'Delete Channel'}
             </button>
           </div>
         </div>

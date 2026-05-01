@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { CLIENTS_DATA } from '../../dummy-data/clients';
 import { PROJECTS_DATA } from '../../dummy-data/projects';
 import { useAuth } from '../../store/AuthContext';
-import { Search, Plus, Mail, Phone, Edit, Trash2, Filter } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Edit, Trash2, Filter, Briefcase } from 'lucide-react';
 import { useSearch } from '../../hooks/useSearch';
 import { DataTable } from '../../components/common/DataTable';
 import { ActionMenu } from '../../components/common/ActionMenu';
@@ -14,6 +14,7 @@ import { createNotification } from '../../utils/notifications';
 import { subscribeToClients, createClient, updateClient, ClientData } from '../../services/clientService';
 import { PageTransition } from '../../components/common/PageTransition';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { ClientProjectWizard } from '../../components/clients/ClientProjectWizard';
 
 export default function ClientsPage() {
   const { user } = useAuth();
@@ -50,6 +51,7 @@ export default function ClientsPage() {
   }, [accessibleClients]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<{ email: string, name: string } | null>(null);
   const [editingClient, setEditingClient] = useState<any>(null);
@@ -152,6 +154,16 @@ export default function ClientsPage() {
       className: 'text-[13px] font-medium text-text-secondary',
     },
     {
+      header: 'Location',
+      key: 'location',
+      render: (client: any) => (
+        <div className="text-[12px] text-text-secondary flex items-center gap-1.5 font-medium">
+          <Filter size={10} className="rotate-90 opacity-40" />
+          {client.location || 'Not Set'}
+        </div>
+      ),
+    },
+    {
       header: 'Status',
       key: 'status',
       render: (client: any) => (
@@ -212,14 +224,28 @@ export default function ClientsPage() {
             <h2 className="text-xl font-bold text-text-primary tracking-tight">Active Clients</h2>
             <p className="text-text-secondary text-[13px]">Track and manage your enterprise client database.</p>
           </div>
-          <button 
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover transition-all text-[13px] font-bold shadow-sm active:scale-95"
-            onClick={() => handleOpenModal()}
-          >
-            <Plus size={16} />
-            + New Client
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-white text-text-primary rounded-md hover:bg-bg-light transition-all text-[13px] font-bold shadow-sm active:scale-95"
+              onClick={() => handleOpenModal()}
+            >
+              <Plus size={16} />
+              Quick Client
+            </button>
+            <button 
+              className="inline-flex items-center gap-2 px-4 py-2 bg-success text-white rounded-md hover:bg-success-hover transition-all text-[13px] font-bold shadow-sm active:scale-95"
+              onClick={() => setIsWizardOpen(true)}
+            >
+              <Briefcase size={16} />
+              New Client & Project
+            </button>
+          </div>
         </div>
+
+        <ClientProjectWizard 
+          isOpen={isWizardOpen}
+          onClose={() => setIsWizardOpen(false)}
+        />
 
         <div className="bg-white rounded-md border border-border shadow-sm overflow-hidden">
           <div className="p-4 flex flex-col sm:flex-row items-center gap-4 bg-white">

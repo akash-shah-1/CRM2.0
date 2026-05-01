@@ -19,6 +19,7 @@ export interface ChatRoom {
   type: 'public' | 'private' | 'dm';
   projectId?: string;
   participants?: string[];
+  creatorId?: string;
   status?: 'online' | 'away' | 'offline';
   lastSeen?: Timestamp | any;
 }

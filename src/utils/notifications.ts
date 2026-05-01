@@ -11,12 +11,17 @@ interface NotifyOptions {
 }
 
 export async function createNotification({ title, message, type = 'info', userId }: NotifyOptions) {
+  if (!userId) {
+    console.warn('createNotification called without a userId. Notification will not be visible to anyone.');
+    return;
+  }
+  
   try {
     await addDoc(collection(db, 'notifications'), {
       title,
       message,
       type,
-      userId: userId || 'admin-broadcast', // Special tag or just null
+      userId,
       read: false,
       timestamp: serverTimestamp()
     });

@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 import { ChatMessage } from './types';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { handleFirestoreError, OperationType } from '../../utils/firebaseErrorHandler';
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
@@ -35,8 +36,7 @@ export default function ChatMessages({ messages, chatSearch, user, activeId, roo
           readBy: arrayUnion(user.uid)
         });
       } catch (err) {
-        // Silently fail if rules catch it late, but we updated rules to allow this
-        console.error('Error marking message as read:', err);
+        handleFirestoreError(err, OperationType.UPDATE, `messages/${m.id}`);
       }
     });
   }, [messages, user?.uid]);

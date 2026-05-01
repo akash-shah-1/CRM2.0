@@ -17,9 +17,14 @@ export interface ClientData {
   name: string;
   email: string;
   company: string;
+  location?: string;
   status: 'active' | 'inactive' | 'lead';
   phone?: string;
+  notes?: string;
+  totalProjects?: number;
+  totalSpent?: number;
   createdAt: any;
+  updatedAt?: any;
 }
 
 export function subscribeToClients(callback: (clients: ClientData[]) => void) {

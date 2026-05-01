@@ -409,113 +409,115 @@ export default function TeamsPage() {
           </div>
         }
       >
-        <form className="space-y-6" id="user-form" onSubmit={handleSubmit}>
-          {!editingMember && (
-            <div className="p-3 bg-primary/5 border border-primary/20 rounded text-[12px] text-primary">
-              <span className="font-bold">Account Setup:</span> This creates both a directory profile and authentication credentials.
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input 
-              label="Full Name" 
-              value={formData.displayName} 
-              onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} 
-              placeholder="e.g. Alice Smith"
-              required
-              disabled={!isAdmin && currentUser?.uid !== editingMember?.uid}
-            />
-            <Input 
-              label="Email Address" 
-              type="email"
-              value={formData.email} 
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-              placeholder="e.g. alice@nexus.com"
-              required
-              disabled={editingMember !== null}
-            />
-          </div>
-
-          {!editingMember && (
-            <Input 
-              label="Password" 
-              type="password"
-              value={formData.password} 
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-              placeholder="Min 6 characters"
-              required
-            />
-          )}
-
-          {isAdmin && (
-            <div className="space-y-6">
+        <div className="max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+          <form className="space-y-6" id="user-form" onSubmit={handleSubmit}>
+            {!editingMember && (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded text-[12px] text-primary">
+                <span className="font-bold">Account Setup:</span> This creates both a directory profile and authentication credentials.
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="max-w-xs">
-                <Select 
-                  label="Access Role" 
-                  value={formData.role} 
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  options={[
-                    { label: 'Employee', value: UserRole.EMPLOYEE },
-                    { label: 'Manager', value: UserRole.MANAGER },
-                    { label: 'Admin', value: UserRole.ADMIN },
-                  ]}
-                />
-              </div>
-              <div className="max-w-xs">
-                <Select 
-                  label="Default Landing Page" 
-                  value={formData.defaultPage} 
-                  onChange={(e) => setFormData({ ...formData, defaultPage: e.target.value })}
-                  options={[
-                    { label: 'Auto (First Accessible)', value: '' },
-                    ...MODULES.map(m => ({ label: m.label, value: m.path }))
-                  ]}
-                />
-              </div>
+              <Input 
+                label="Full Name" 
+                value={formData.displayName} 
+                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} 
+                placeholder="e.g. Alice Smith"
+                required
+                disabled={!isAdmin && currentUser?.uid !== editingMember?.uid}
+              />
+              <Input 
+                label="Email Address" 
+                type="email"
+                value={formData.email} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                placeholder="e.g. alice@nexus.com"
+                required
+                disabled={editingMember !== null}
+              />
             </div>
-              
-              <div className="space-y-3">
-                <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Module Permissions</label>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-bg-light/50 border border-border rounded-lg">
-                  {MODULES.map((module) => (
-                    <label key={module.id} className="flex items-center gap-2 cursor-pointer group p-1.5 rounded transition-all">
-                      <input 
-                        type="checkbox"
-                        checked={formData.permissions.includes(module.id)}
-                        onChange={() => togglePermission(module.id)}
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
-                      />
-                      <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">{module.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
 
-              <div className="space-y-3">
-                <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Project Scoping</label>
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-1 gap-0.5 max-h-40 overflow-y-auto custom-scrollbar">
-                    {PROJECTS_DATA.map((project) => (
-                      <label key={project.id} className="flex items-center justify-between cursor-pointer group hover:bg-bg-light/50 p-2.5 px-4 transition-all">
-                        <div className="flex items-center gap-3">
-                          <input 
-                            type="checkbox"
-                            checked={formData.projectAccess.includes(project.id)}
-                            onChange={() => toggleProjectAccess(project.id)}
-                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
-                          />
-                          <span className="text-[12px] font-semibold text-text-primary">{project.title}</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-text-secondary uppercase">{project.client}</span>
+            {!editingMember && (
+              <Input 
+                label="Password" 
+                type="password"
+                value={formData.password} 
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                placeholder="Min 6 characters"
+                required
+              />
+            )}
+
+            {isAdmin && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="max-w-xs">
+                    <Select 
+                      label="Access Role" 
+                      value={formData.role} 
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      options={[
+                        { label: 'Employee', value: UserRole.EMPLOYEE },
+                        { label: 'Manager', value: UserRole.MANAGER },
+                        { label: 'Admin', value: UserRole.ADMIN },
+                      ]}
+                    />
+                  </div>
+                  <div className="max-w-xs">
+                    <Select 
+                      label="Default Landing Page" 
+                      value={formData.defaultPage} 
+                      onChange={(e) => setFormData({ ...formData, defaultPage: e.target.value })}
+                      options={[
+                        { label: 'Auto (First Accessible)', value: '' },
+                        ...MODULES.map(m => ({ label: m.label, value: m.path }))
+                      ]}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Module Permissions</label>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-bg-light/50 border border-border rounded-lg">
+                    {MODULES.map((module) => (
+                      <label key={module.id} className="flex items-center gap-2 cursor-pointer group p-1.5 rounded transition-all">
+                        <input 
+                          type="checkbox"
+                          checked={formData.permissions.includes(module.id)}
+                          onChange={() => togglePermission(module.id)}
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                        />
+                        <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">{module.label}</span>
                       </label>
                     ))}
                   </div>
                 </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-[0.05em]">Project Scoping</label>
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-1 gap-0.5 max-h-40 overflow-y-auto custom-scrollbar">
+                      {PROJECTS_DATA.map((project) => (
+                        <label key={project.id} className="flex items-center justify-between cursor-pointer group hover:bg-bg-light/50 p-2.5 px-4 transition-all">
+                          <div className="flex items-center gap-3">
+                            <input 
+                              type="checkbox"
+                              checked={formData.projectAccess.includes(project.id)}
+                              onChange={() => toggleProjectAccess(project.id)}
+                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                            />
+                            <span className="text-[12px] font-semibold text-text-primary">{project.title}</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-text-secondary uppercase">{project.client}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-        </form>
+            )}
+          </form>
+        </div>
       </Modal>
 
       {emailRecipient && (

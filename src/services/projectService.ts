@@ -8,18 +8,34 @@ import {
   deleteDoc,
   doc, 
   serverTimestamp,
-  where
+  where,
+  increment
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { handleFirestoreError, OperationType } from '../utils/firebaseErrorHandler';
 
 export interface ProjectData {
   id?: string;
-  name: string;
-  status: 'planning' | 'active' | 'on-hold' | 'completed';
   clientId: string;
   clientName?: string;
+  title: string;
   description?: string;
+  requirements?: string;
+  promisedFeatures?: string[];
+  outOfScope?: string[];
+  price: number;
+  status: 'lead' | 'active' | 'completed' | 'on_hold';
+  startDate?: any;
+  endDate?: any;
+  completionDate?: any;
+  techStack?: string[];
+  maintenanceYears?: number;
+  liveLink?: string;
+  stagingLink?: string;
+  repoLink?: string;
+  credentials?: string;
+  meetingNotes?: Array<{ date: number; summary: string }>;
+  teamIds?: string[];
   createdAt: any;
 }
 
@@ -59,11 +75,38 @@ export async function createProject(data: Omit<ProjectData, 'id' | 'createdAt'>)
   }
 }
 
+import { updateStatsOnProjectCompletion } from './statsService';
+
 export async function updateProject(id: string, data: Partial<ProjectData>) {
   try {
     const ref = doc(db, 'projects', id);
     await updateDoc(ref, data);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `projects/${id}`);
+  }
+}
+
+export async function completeProject(projectId: string, clientId: string, price: number) {
+  try {
+    // 1. Update Project Status
+    const projectRef = doc(db, 'projects', projectId);
+    await updateDoc(projectRef, {
+      status: 'completed',
+      completionDate: serverTimestamp()
+    });
+
+    // 2. Update Client Stats
+    const clientRef = doc(db, 'clients', clientId);
+    await updateDoc(clientRef, {
+      totalProjects: increment(1),
+      totalSpent: increment(price),
+      updatedAt: serverTimestamp()
+    });
+
+    // 3. Update Global Stats
+    await updateStatsOnProjectCompletion(price);
+    
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `projects/${projectId}`);
   }
 }

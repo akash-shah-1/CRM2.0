@@ -108,6 +108,7 @@ export default function ChatInput({
         )}
 
         <div className="flex items-center gap-2 bg-bg-light/30 border border-border rounded-md p-1.5 focus-within:ring-4 focus-within:ring-primary/5 focus-within:border-primary/30 transition-all">
+          {/* File upload hidden for now
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -122,6 +123,7 @@ export default function ChatInput({
           >
             <Paperclip size={20} />
           </button>
+          */}
           <input 
             autoFocus
             value={newMessage}
@@ -159,6 +161,7 @@ export default function ChatInput({
               <SmilePlus size={20} />
             </button>
             
+            {/* GIF Picker hidden for now
             <div className="relative">
               {showGifPicker && (
                 <div className="absolute bottom-full right-0 mb-4 w-72 bg-white border border-border rounded-md shadow-2xl z-50 animate-in zoom-in-95 origin-bottom-right overflow-hidden flex flex-col h-[400px]">
@@ -213,6 +216,7 @@ export default function ChatInput({
                 GIF
               </button>
             </div>
+            */}
           </div>
         </div>
       </form>

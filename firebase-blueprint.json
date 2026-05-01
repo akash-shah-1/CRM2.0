@@ -25,9 +25,12 @@
         "email": { "type": "string", "format": "email" },
         "company": { "type": "string" },
         "phone": { "type": "string" },
+        "location": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "inactive", "lead"] },
         "notes": { "type": "string" },
         "assignedManagerId": { "type": "string" },
+        "totalProjects": { "type": "number", "default": 0 },
+        "totalSpent": { "type": "number", "default": 0 },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
@@ -42,13 +45,43 @@
         "clientId": { "type": "string" },
         "title": { "type": "string" },
         "description": { "type": "string" },
-        "status": { "type": "string", "enum": ["planning", "active", "on_hold", "completed"] },
+        "requirements": { "type": "string" },
+        "promisedFeatures": { "type": "array", "items": { "type": "string" } },
+        "outOfScope": { "type": "array", "items": { "type": "string" } },
+        "price": { "type": "number", "default": 0 },
+        "status": { "type": "string", "enum": ["lead", "active", "completed", "on_hold"] },
         "startDate": { "type": "number" },
         "endDate": { "type": "number" },
+        "completionDate": { "type": "number" },
+        "techStack": { "type": "array", "items": { "type": "string" } },
+        "maintenanceYears": { "type": "number", "default": 1 },
+        "liveLink": { "type": "string" },
+        "stagingLink": { "type": "string" },
+        "repoLink": { "type": "string" },
+        "credentials": { "type": "string" },
+        "meetingNotes": { "type": "array", "items": { 
+          "type": "object",
+          "properties": {
+            "date": { "type": "number" },
+            "summary": { "type": "string" }
+          }
+        }},
         "teamIds": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "number" }
       },
       "required": ["id", "clientId", "title", "status", "createdAt"]
+    },
+    "GlobalStats": {
+      "title": "Global Statistics",
+      "description": "Aggregated metrics for the organization.",
+      "type": "object",
+      "properties": {
+        "totalSales": { "type": "number" },
+        "totalEarnings": { "type": "number" },
+        "totalProjects": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["totalSales", "totalEarnings", "totalProjects", "updatedAt"]
     },
     "Channel": {
       "title": "Chat Channel",
@@ -89,6 +122,35 @@
         }
       },
       "required": ["id", "senderId", "senderName", "text", "timestamp"]
+    },
+    "InternalEmail": {
+      "title": "Internal Email",
+      "description": "An internal message sent between organization members.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "recipientIds": { "type": "array", "items": { "type": "string" } },
+        "recipientEmails": { "type": "array", "items": { "type": "string" } },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "priority": { "type": "string", "enum": ["normal", "high", "urgent"] },
+        "timestamp": { "type": "number" },
+        "readBy": { "type": "array", "items": { "type": "string" } },
+        "attachments": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["senderId", "recipientIds", "subject", "body", "timestamp"]
     }
   },
   "firestore": {
@@ -111,6 +173,14 @@
     "/messages/{messageId}": {
       "schema": "Message",
       "description": "Chat messages (global collection for easier querying)."
+    },
+    "/internal_emails/{emailId}": {
+      "schema": "InternalEmail",
+      "description": "Internal organizational emails."
+    },
+    "/system_stats/global": {
+      "schema": "GlobalStats",
+      "description": "Global performance metrics."
     }
   }
 }

@@ -10,7 +10,7 @@ import { cn } from './utils/cn';
 import { LayoutDashboard, Users, Briefcase, ChevronRight, LogOut, Shield, FileText, FolderOpen, Lock, LayoutGrid, Send, Bell, Mail, Search, Plus } from 'lucide-react';
 import { NotificationCenter } from './components/common/NotificationCenter';
 import { NotificationBanner } from './components/common/NotificationBanner';
-import { query, collection, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { query, collection, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from './services/firebase';
 
 
@@ -72,8 +72,8 @@ const hasPermission = (user: any, moduleId: string) => {
 };
 
 
-// Sidebar Item Component
-const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed, hasNew }: { to: string, icon: any, label: string, moduleId: string, isCollapsed: boolean, hasNew?: boolean }) => {
+  // Sidebar Item Component
+const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed, hasNew, badge }: { to: string, icon: any, label: string, moduleId: string, isCollapsed: boolean, hasNew?: boolean, badge?: number }) => {
   const { user } = useAuth();
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -82,13 +82,16 @@ const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed, hasNew }: { to:
   const hasPermission = user?.role === 'admin' || user?.permissions?.includes(moduleId);
   if (!hasPermission) return null;
 
+  const showNumericBadge = false; // We use dots as requested
+  const showUnreadDot = !isActive && (hasNew || (typeof badge === 'number' && badge > 0));
+
   return (
     <Link 
       to={to} 
       className={cn(
         "flex items-center gap-3 px-3 py-2 text-[13px] font-medium rounded-md transition-all duration-200 group relative",
         isActive 
-          ? "bg-sidebar-item-active text-white" 
+          ? "bg-sidebar-item-active text-white shadow-sm" 
           : "text-slate-300 hover:bg-sidebar-item-hover hover:text-white"
       )}
       title={isCollapsed ? label : ""}
@@ -98,15 +101,15 @@ const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed, hasNew }: { to:
           "transition-colors",
           isActive ? "text-white" : "text-slate-400 group-hover:text-white"
         )} />
-        {hasNew && !isActive && (
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-sidebar-bg animate-pulse" />
+        {showUnreadDot && (
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border border-[#1e1e2d] animate-pulse" />
         )}
       </div>
       {!isCollapsed && (
         <span className="flex-1 flex items-center justify-between">
-          {label}
-          {hasNew && !isActive && (
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+          <span className="truncate">{label}</span>
+          {showUnreadDot && !isCollapsed && (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
           )}
         </span>
       )}
@@ -120,45 +123,121 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [latestTimestamps, setLatestTimestamps] = React.useState<Record<string, number>>({});
+  const [unreadEmails, setUnreadEmails] = React.useState(0);
+  const [unreadMessages, setUnreadMessages] = React.useState(0);
 
   // Monitor collections for new items
   React.useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
 
     const collections = ['projects', 'notes', 'documents'];
     const unsubs = collections.map(col => {
-      const q = query(collection(db, col), orderBy('createdAt', 'desc'), limit(1));
+      const q = query(
+        collection(db, col), 
+        orderBy('createdAt', 'desc'), 
+        limit(1)
+      );
+      
       return onSnapshot(q, (snap) => {
         if (!snap.empty) {
-          const data = snap.docs[0].data();
+          const doc = snap.docs[0];
+          const data = doc.data();
           const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : (data.createdAt || 0);
-          setLatestTimestamps(prev => ({ ...prev, [col]: timestamp }));
+          
+          // Use a functional update to avoid dependency on latestTimestamps
+          setLatestTimestamps(prev => {
+            if (prev[col] === timestamp) return prev;
+            return { ...prev, [col]: timestamp };
+          });
         }
+      }, (err) => {
+        console.warn(`Sidebar listener error for ${col}:`, err.message);
       });
     });
 
-    return () => unsubs.forEach(unsub => unsub());
-  }, [user]);
+    // Monitor internal emails for unread count
+    const qEmails = query(
+      collection(db, 'internal_emails'),
+      where('recipientIds', 'array-contains', user.uid)
+    );
+    const unsubEmails = onSnapshot(qEmails, (snap) => {
+      const unread = snap.docs.filter(doc => !(doc.data().readBy || []).includes(user.uid)).length;
+      setUnreadEmails(unread);
+    }, (err) => {
+      console.warn(`Email listener error:`, err.message);
+    });
+
+    // Monitor chat messages for unread count
+    let lastSnap: any = null;
+    const calculateUnread = (snap: any) => {
+      let savedLastRead: Record<string, number> = {};
+      try {
+        const saved = localStorage.getItem(`chat_last_read_${user.uid}`);
+        savedLastRead = saved ? JSON.parse(saved) : {};
+      } catch (e) {
+        console.error('Error parsing chat last read:', e);
+      }
+
+      const count = snap.docs.filter((doc: any) => {
+        const data = doc.data();
+        if (data.senderId === user.uid) return false;
+        
+        const roomId = data.channelId || (data.recipientId === user.uid ? data.senderId : data.recipientId);
+        const lastReadTime = savedLastRead[roomId] || 0;
+        const msgTime = data.timestamp?.toMillis ? data.timestamp.toMillis() : (data.timestamp || 0);
+        return msgTime > lastReadTime;
+      }).length;
+      
+      setUnreadMessages(count);
+    };
+
+    const qMessages = query(
+      collection(db, 'messages'),
+      where('participants', 'array-contains', user.uid),
+      orderBy('timestamp', 'desc'),
+      limit(100)
+    );
+    const unsubMessages = onSnapshot(qMessages, (snap) => {
+      lastSnap = snap;
+      calculateUnread(snap);
+    }, (err) => {
+      console.warn(`Message listener error:`, err.message);
+    });
+
+    const handleStorageChange = () => {
+      if (lastSnap) calculateUnread(lastSnap);
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      unsubs.forEach(unsub => unsub());
+      unsubEmails();
+      unsubMessages();
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [user?.uid]);
 
   // Update last viewed on navigation
   React.useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const path = location.pathname.split('/')[1];
-    const trackableModules = ['projects', 'notes', 'documents'];
+    const trackableModules = ['projects', 'notes', 'documents', 'explorer'];
     
     if (trackableModules.includes(path)) {
+      const moduleKey = path === 'explorer' ? 'projects' : path;
       const lastViewed = user.lastViewed || {};
       const now = Date.now();
       
-      // Only update if current latest is newer than what we have saved OR if we don't have a record
-      const currentModuleLatest = latestTimestamps[path] || 0;
-      const ourLastViewed = lastViewed[path] || 0;
+      const currentModuleLatest = latestTimestamps[moduleKey] || 0;
+      const ourLastViewed = lastViewed[moduleKey] || 0;
 
-      if (currentModuleLatest > ourLastViewed) {
+      // Ensure we don't trigger recursive updates
+      // Only update if current module latest is definitively newer than what we recorded
+      if (currentModuleLatest > ourLastViewed && ourLastViewed < now - 5000) {
         updateProfile({
           lastViewed: {
             ...lastViewed,
-            [path]: now
+            [moduleKey]: now
           }
         });
       }
@@ -166,15 +245,26 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   }, [location.pathname, user?.uid, latestTimestamps]);
 
   const hasNew = (moduleId: string) => {
-    if (!user || user.lastViewed?.[moduleId] === undefined) {
-      // If we don't have a record, count it as "seen" to avoid initial flood of dots
-      // unless we want to show dots for everything the first time.
-      // Let's assume everything is seen if no record exists yet, to be less intrusive.
-      return false; 
+    if (!user) return false;
+    const moduleKey = moduleId === 'explorer' ? 'projects' : moduleId;
+    const lastViewed = user.lastViewed || {};
+    
+    const latest = latestTimestamps[moduleKey] || 0;
+    const lastViewedTime = lastViewed[moduleKey] || 0;
+    
+    // If we have zero or very old timestamp in latest, don't show indicator
+    if (latest === 0) return false;
+    
+    // If user has NO record for this module, show indicator only if the latest item is very recent (e.g. past hour)
+    // to avoid "initial flood" but still show genuinely new recent things.
+    // Or just always show if latest > lastViewedTime where lastViewedTime defaults to 0.
+    // Let's go with: if lastViewed is missing, we check if latest is newer than account creation.
+    if (lastViewedTime === 0) {
+       const userCreatedAt = user.createdAt?.toMillis ? user.createdAt.toMillis() : (user.createdAt || 0);
+       return latest > userCreatedAt;
     }
-    const latest = latestTimestamps[moduleId === 'explorer' ? 'projects' : moduleId] || 0;
-    const lastViewed = user.lastViewed?.[moduleId === 'explorer' ? 'projects' : moduleId] || 0;
-    return latest > lastViewed;
+
+    return latest > lastViewedTime;
   };
   
   const getPageTitle = () => {
@@ -240,8 +330,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           {user?.role === 'admin' && <NavItem to="/vault" icon={Lock} label="Vault" moduleId="vault" isCollapsed={isCollapsed} />}
           
           {!isCollapsed && <div className="mt-8 mb-2 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Communication</div>}
-          <NavItem to="/chat" icon={Send} label="Chat" moduleId="chat" isCollapsed={isCollapsed} />
-          <NavItem to="/communication" icon={Mail} label="Correspondence" moduleId="communication" isCollapsed={isCollapsed} />
+          <NavItem to="/chat" icon={Send} label="Chat" moduleId="chat" isCollapsed={isCollapsed} badge={unreadMessages} />
+          <NavItem to="/communication" icon={Mail} label="Correspondence" moduleId="communication" isCollapsed={isCollapsed} badge={unreadEmails} />
         </nav>
 
         <div className="p-4 border-t border-white/5">
