@@ -188,8 +188,8 @@ service cloud.firestore {
     match /projects/{projectId} {
       allow get: if isSignedIn() && isNotDisabled();
       allow list: if isSignedIn();
-      allow create: if isVerified() && isManager() && isNotDisabled() && isValidProject(request.resource.data);
-      allow update: if isVerified() && isManager() && isNotDisabled() && isValidProject(request.resource.data);
+      allow create: if (isVerified() && isManager() && isNotDisabled() && isValidProject(request.resource.data)) || isAdmin();
+      allow update: if (isVerified() && isManager() && isNotDisabled() && isValidProject(request.resource.data)) || isAdmin();
       allow delete: if isAdmin();
     }
 

@@ -86,30 +86,30 @@ const NavItem = ({ to, icon: Icon, label, moduleId, isCollapsed, hasNew, badge }
   const showUnreadDot = !isActive && (hasNew || (typeof badge === 'number' && badge > 0));
 
   return (
-    <Link 
-      to={to} 
+    <Link
+      to={to}
       className={cn(
         "flex items-center gap-3 px-3 py-2 text-[13px] font-medium rounded-md transition-all duration-200 group relative",
-        isActive 
-          ? "bg-sidebar-item-active text-white shadow-sm" 
-          : "text-slate-300 hover:bg-sidebar-item-hover hover:text-white"
+        isActive
+          ? "bg-slate-100 text-slate-900"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
       )}
       title={isCollapsed ? label : ""}
     >
       <div className="relative">
-        <Icon size={18} className={cn(
+        <Icon size={16} className={cn(
           "transition-colors",
-          isActive ? "text-white" : "text-slate-400 group-hover:text-white"
+          isActive ? "text-slate-900" : "text-slate-400 group-hover:text-slate-600"
         )} />
         {showUnreadDot && (
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border border-[#1e1e2d] animate-pulse" />
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full border border-white" />
         )}
       </div>
       {!isCollapsed && (
         <span className="flex-1 flex items-center justify-between">
           <span className="truncate">{label}</span>
           {showUnreadDot && !isCollapsed && (
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
           )}
         </span>
       )}
@@ -285,121 +285,127 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex min-h-screen bg-bg-light">
       <NotificationBanner />
-      
+
       {/* Sidebar */}
-      <aside 
+      <aside
         className={cn(
-          "hidden md:flex flex-col bg-sidebar-bg transition-all duration-300 relative z-30",
-          isCollapsed ? "w-20" : "w-[260px]"
+          "hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 relative z-30",
+          isCollapsed ? "w-[72px]" : "w-[240px]"
         )}
       >
         <div className={cn(
-          "h-16 flex items-center px-6 border-b border-white/5",
-          isCollapsed ? "justify-center px-0" : "justify-between"
+          "h-14 flex items-center px-4 border-b border-slate-200",
+          isCollapsed ? "justify-center" : "justify-between"
         )}>
           {!isCollapsed && (
-            <div className="font-bold text-lg text-white tracking-tight flex items-center gap-2">
-               <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">N</div>
+            <div className="font-semibold text-[15px] text-slate-900 tracking-tight flex items-center gap-2">
+               <div className="w-6 h-6 bg-slate-900 rounded flex items-center justify-center shadow-sm">
+                 <span className="text-white text-xs font-bold">N</span>
+               </div>
                <span>Nexus</span>
             </div>
           )}
-          {isCollapsed && <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center font-bold text-white">N</div>}
-          
-          <button 
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={cn(
-              "p-1.5 rounded-md hover:bg-white/10 text-slate-400 hover:text-white transition-all",
-              isCollapsed && "hidden" // Or reposition
-            )}
-          >
-            <ChevronRight size={18} className={cn("transition-transform", !isCollapsed && "rotate-180")} />
-          </button>
+          {isCollapsed && (
+            <div className="w-6 h-6 bg-slate-900 rounded flex items-center justify-center shadow-sm">
+                 <span className="text-white text-xs font-bold">N</span>
+            </div>
+          )}
+
+          {!isCollapsed && (
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
+            >
+              <ChevronRight size={16} className={cn("transition-transform", !isCollapsed && "rotate-180")} />
+            </button>
+          )}
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
-          {!isCollapsed && <div className="text-slate-400 text-[11px] font-bold uppercase tracking-widest mt-4 mb-3 px-3 opacity-60">Main Menu</div>}
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto custom-scrollbar">
+          {!isCollapsed && <div className="text-slate-400 text-[11px] font-semibold mt-2 mb-2 px-3">Workspace</div>}
           <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" moduleId="dashboard" isCollapsed={isCollapsed} />
           <NavItem to="/clients" icon={Users} label="Clients" moduleId="clients" isCollapsed={isCollapsed} />
           <NavItem to="/projects" icon={Briefcase} label="Projects" moduleId="projects" isCollapsed={isCollapsed} hasNew={hasNew('projects')} />
           <NavItem to="/teams" icon={Shield} label="Team" moduleId="teams" isCollapsed={isCollapsed} />
-          
-          {!isCollapsed && <div className="mt-8 mb-2 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Productivity</div>}
+
+          {!isCollapsed && <div className="mt-6 mb-2 px-3 text-[11px] font-semibold text-slate-400">Tools</div>}
+          {isCollapsed && <div className="my-2 mx-3 h-px bg-slate-100" />}
           <NavItem to="/explorer" icon={LayoutGrid} label="Explorer" moduleId="explorer" isCollapsed={isCollapsed} hasNew={hasNew('explorer')} />
           <NavItem to="/notes" icon={FileText} label="Notes" moduleId="notes" isCollapsed={isCollapsed} hasNew={hasNew('notes')} />
           <NavItem to="/documents" icon={FolderOpen} label="Documents" moduleId="documents" isCollapsed={isCollapsed} hasNew={hasNew('documents')} />
           {user?.role === 'admin' && <NavItem to="/vault" icon={Lock} label="Vault" moduleId="vault" isCollapsed={isCollapsed} />}
-          
-          {!isCollapsed && <div className="mt-8 mb-2 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Communication</div>}
+
+          {!isCollapsed && <div className="mt-6 mb-2 px-3 text-[11px] font-semibold text-slate-400">Communication</div>}
+          {isCollapsed && <div className="my-2 mx-3 h-px bg-slate-100" />}
           <NavItem to="/chat" icon={Send} label="Chat" moduleId="chat" isCollapsed={isCollapsed} badge={unreadMessages} />
           <NavItem to="/communication" icon={Mail} label="Correspondence" moduleId="communication" isCollapsed={isCollapsed} badge={unreadEmails} />
         </nav>
 
-        <div className="p-4 border-t border-white/5">
-          <Link to="/profile" className={cn("flex items-center gap-3 px-2 py-2 group cursor-pointer", isCollapsed && "justify-center px-0")}>
-            <div className="w-8 h-8 rounded-md bg-white/10 border border-white/10 overflow-hidden flex-shrink-0 transition-transform group-hover:scale-110">
+        <div className="p-3 border-t border-slate-200">
+          <Link to="/profile" className={cn("flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 group cursor-pointer transition-all", isCollapsed && "justify-center")}>
+            <div className="w-8 h-8 rounded-md bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
                {user?.avatarUrl ? (
                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                ) : (
-                 <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-300">
+                 <div className="w-full h-full flex items-center justify-center text-xs font-medium text-slate-500">
                    {user?.displayName?.charAt(0)}
                  </div>
                )}
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                 <div className="text-[13px] font-semibold text-white truncate">{user?.displayName}</div>
-                 <div className="text-[10px] text-slate-400 truncate uppercase tracking-wider">{user?.role}</div>
+                 <div className="text-[13px] font-medium text-slate-900 truncate">{user?.displayName}</div>
+                 <div className="text-[11px] text-slate-500 truncate">{user?.role}</div>
               </div>
             )}
           </Link>
           {!isCollapsed && (
-            <button 
+            <button
               onClick={() => logout()}
-              className="w-full mt-2 flex items-center justify-between px-3 py-2 text-[12px] font-semibold text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+              className="w-full mt-1 flex items-center justify-between px-3 py-2 text-[12px] font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
             >
               Sign Out
-              <LogOut size={14} />
+              <LogOut size={13} />
             </button>
           )}
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#fafafa]">
         {/* Top Navbar */}
-        <header className="h-[70px] bg-white border-b border-border px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-          <div className="flex items-center gap-6">
-            <button 
+        <header className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-4">
+            <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 text-slate-500 hover:bg-slate-50 rounded-md hidden md:block"
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-all hidden md:block"
             >
-              <LayoutGrid size={20} />
+              <LayoutGrid size={18} />
             </button>
             <div className="relative hidden lg:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                className="pl-10 pr-4 py-2 bg-bg-light border-none rounded-md text-[13px] w-64 focus:ring-1 focus:ring-primary/20 transition-all outline-none" 
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-[13px] w-64 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
               />
             </div>
-            <div className="md:hidden font-bold text-slate-900 tracking-tight">Nexus</div>
+            <div className="md:hidden font-semibold text-slate-900 tracking-tight">Nexus</div>
           </div>
 
-          <div className="flex items-center gap-2">
-             <Link to="/profile" className="flex items-center gap-1 group px-4 py-1.5 rounded-full hover:bg-slate-50 cursor-pointer hidden sm:flex border border-transparent hover:border-border transition-all">
-                <div className="text-right mr-2 hidden xl:block">
-                  <div className="text-[12px] font-bold text-slate-900 leading-none">{user?.displayName}</div>
-                  <div className="text-[10px] text-text-secondary mt-1 uppercase tracking-wider">{user?.role}</div>
+          <div className="flex items-center gap-3">
+             <Link to="/profile" className="flex items-center gap-2 group px-2 py-1 rounded-md hover:bg-slate-50 cursor-pointer hidden sm:flex transition-all">
+                <div className="text-right hidden xl:block">
+                  <div className="text-[12px] font-medium text-slate-900 leading-none">{user?.displayName}</div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden border border-border">
+                <div className="w-7 h-7 rounded-md bg-slate-100 overflow-hidden border border-slate-200">
                   {user?.avatarUrl ? (
                     <img src={user.avatarUrl} alt="User" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center font-bold text-slate-400 text-xs">{user?.displayName?.charAt(0)}</div>
+                    <div className="w-full h-full flex items-center justify-center font-medium text-slate-500 text-xs">{user?.displayName?.charAt(0)}</div>
                   )}
                 </div>
              </Link>
-             <div className="h-4 w-[1px] bg-border mx-2 hidden sm:block"></div>
+             <div className="h-4 w-px bg-slate-200 hidden sm:block" />
              <NotificationCenter />
           </div>
         </header>

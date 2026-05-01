@@ -195,14 +195,14 @@ export function ClientProjectWizard({ isOpen, onClose, onSuccess }: ClientProjec
               return (
                 <div key={step.id} className="flex flex-col items-center gap-2 relative">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    isActive ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' :
-                    isPast ? 'bg-success/20 text-success' :
-                    'bg-white border border-border text-text-secondary'
+                    isActive ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' :
+                    isPast ? 'bg-green-50 text-green-600 border border-green-200' :
+                    'bg-slate-50 border border-slate-200 text-slate-400'
                   }`}>
                     {isPast ? <CheckCircle2 size={20} /> : <Icon size={20} />}
                   </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                    isActive ? 'text-primary' : 'text-text-secondary'
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${
+                    isActive ? 'text-blue-600' : 'text-slate-500'
                   }`}>
                     {step.title}
                   </span>
@@ -392,18 +392,18 @@ export function ClientProjectWizard({ isOpen, onClose, onSuccess }: ClientProjec
           <button 
             onClick={handleBack}
             disabled={currentStep === 0}
-            className={`flex items-center gap-2 px-6 py-2.5 text-[14px] font-bold rounded-lg transition-all ${
-              currentStep === 0 ? 'text-gray-300 pointer-events-none' : 'text-text-secondary hover:bg-bg-light'
+            className={`flex items-center gap-1.5 px-4 py-2 text-[14px] font-semibold rounded-lg transition-all ${
+              currentStep === 0 ? 'text-slate-300 pointer-events-none' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
             Back
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button 
               onClick={onClose} 
-              className="px-6 py-2.5 text-[14px] font-bold text-text-secondary hover:text-danger transition-all"
+              className="px-5 py-2 text-[14px] font-semibold text-slate-500 hover:text-slate-700 transition-all"
             >
               Cancel
             </button>
@@ -411,18 +411,18 @@ export function ClientProjectWizard({ isOpen, onClose, onSuccess }: ClientProjec
               <button 
                 onClick={handleSubmit} 
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-8 py-3 bg-success text-white text-[14px] font-bold rounded-xl hover:bg-success-hover shadow-lg shadow-success/20 transition-all active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white text-[14px] font-semibold rounded-xl hover:bg-emerald-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {isSubmitting ? 'Syncing...' : 'Finalize Onboarding'}
-                {!isSubmitting && <CheckCircle2 size={18} />}
+                {!isSubmitting && <CheckCircle2 size={16} />}
               </button>
             ) : (
               <button 
                 onClick={handleNext} 
-                className="flex items-center gap-2 px-8 py-3 bg-primary text-white text-[14px] font-bold rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-6 py-2.5 bg-blue-600 text-white text-[14px] font-semibold rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/20 transition-all active:scale-[0.98]"
               >
                 Continue
-                <ChevronRight size={18} />
+                <ChevronRight size={16} />
               </button>
             )}
           </div>
